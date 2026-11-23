@@ -21,12 +21,12 @@ export async function apiRequest(path, options = {}) {
   }
 
   const response = await fetch(
-    `${API_BASE_URL}${path}`,
+    `/api${path}`,
     {
       ...options,
       method,
       headers,
-      credentials: "include",
+      credentials: "same-origin",
     }
   );
 
