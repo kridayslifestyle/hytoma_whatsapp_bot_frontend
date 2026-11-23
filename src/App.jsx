@@ -5,7 +5,6 @@ import {
   LayoutDashboard,
   MessageCircle,
   Users,
-  Settings,
   Bell,
   Search,
   Menu,
@@ -81,11 +80,6 @@ const navigation = [
     id: "sales",
     label: "Sales Team",
     icon: ContactRound,
-  },
-  {
-    id: "settings",
-    label: "Settings",
-    icon: Settings,
   },
 ];
 
@@ -828,18 +822,7 @@ function Dashboard({ admin, onLogout }) {
           ))}
         </nav>
 
-        <div
-          className="absolute bottom-5 left-4 right-4
-          rounded-xl bg-slate-50 p-4"
-        >
-          <div className="flex items-center gap-2 text-sm font-medium">
-            <Bot size={17} className="text-emerald-600" />
-            HYTOMA Lead Bot
-          </div>
-          <p className="mt-1 text-xs text-slate-500">
-            Live status will be connected later
-          </p>
-        </div>
+        
       </aside>
 
       <div className="lg:pl-64">
@@ -888,18 +871,6 @@ function Dashboard({ admin, onLogout }) {
           {page === "inbox" && <Inbox />}
           {page === "leads" && <Leads />}
           {page === "sales" && <SalesTeam />}
-          {page === "settings" && (
-            <div
-              className="rounded-2xl border border-slate-200
-              bg-white p-8"
-            >
-              <h2 className="text-lg font-semibold">Settings</h2>
-              <p className="mt-2 text-sm text-slate-500">
-                Secure login, WhatsApp configuration and bot controls will be
-                connected after backend authentication is ready.
-              </p>
-            </div>
-          )}
         </main>
       </div>
     </div>
