@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 
 import {
   Search,
+  ArrowLeft,
   RefreshCw,
   MessageCircle,
   UserRound,
@@ -151,21 +152,21 @@ function MessageBubble({ message, deliveryStatus }) {
   const outgoing = message.direction === "outgoing";
 
   return (
-    <div className={`flex ${outgoing ? "justify-end" : "justify-start"}`}>
+    <div className={`flex w-full min-w-0 ${outgoing ? "justify-end" : "justify-start"}`}>
       <div
-        className={`max-w-[85%] rounded-2xl px-4 py-3
-          shadow-sm sm:max-w-[75%] ${
+        className={`min-w-0 max-w-[88%] rounded-2xl px-3 py-3
+          shadow-sm sm:max-w-[75%] sm:px-4 ${
             outgoing ? "rounded-br-md bg-[#d9fdd3]" : "rounded-bl-md bg-white"
           }`}
       >
-        <p className="whitespace-pre-wrap break-words text-sm leading-relaxed text-slate-800">
+        <p className="whitespace-pre-wrap break-words [overflow-wrap:anywhere] text-sm leading-relaxed text-slate-800">
           {message.content ||
             (message.message_type && message.message_type !== "text"
               ? `[${message.message_type}]`
               : "Message content unavailable")}
         </p>
 
-        <div className="mt-2 flex items-center justify-end gap-2">
+        <div className="mt-2 flex flex-wrap items-center justify-end gap-x-2 gap-y-1">
           <span className="text-[10px] text-slate-500">
             {outgoing ? "HYTOMA" : "Customer"}
           </span>
@@ -245,6 +246,7 @@ export default function Inbox() {
   const [messages, setMessages] = useState([]);
   const [deliveryStatuses, setDeliveryStatuses] = useState({});
   const [search, setSearch] = useState("");
+  const [mobileChatOpen, setMobileChatOpen] = useState(false);
 
   const [leadsLoading, setLeadsLoading] = useState(true);
   const [messagesLoading, setMessagesLoading] = useState(false);
@@ -865,8 +867,8 @@ async function checkPendingSendStatus() {
   });
 
   return (
-    <div className="space-y-4">
-      <div className="flex flex-wrap items-center justify-between gap-3">
+    <div className="min-w-0 max-w-full space-y-4">
+      <div className="flex min-w-0 flex-wrap items-center justify-between gap-3">
         <div>
           <h2 className="text-lg font-semibold">WhatsApp Conversations</h2>
           <p className="mt-1 text-sm text-slate-500">
@@ -889,12 +891,12 @@ async function checkPendingSendStatus() {
       </div>
 
       <div
-        className="grid min-h-[650px] overflow-hidden
+        className="grid w-full min-w-0 max-w-full overflow-hidden
   rounded-2xl border border-slate-200 bg-white
-  lg:grid-cols-[340px_minmax(0,1fr)]"
+  lg:min-h-[650px] lg:grid-cols-[340px_minmax(0,1fr)]"
       >
         {/* LEFT — CUSTOMER CONVERSATION LIST */}
-        <aside className="border-b border-slate-200 lg:border-b-0 lg:border-r">
+        <aside className={`${mobileChatOpen ? "hidden" : "block"} min-w-0 overflow-hidden border-b border-slate-200 lg:block lg:border-b-0 lg:border-r`}>
           <div className="border-b border-slate-200 p-4">
             <div className="flex items-center justify-between">
               <h3 className="font-semibold">Conversations</h3>
@@ -949,6 +951,7 @@ async function checkPendingSendStatus() {
                   onClick={() => {
                     shouldAutoScrollRef.current = true;
                     setSelectedPhone(lead.phone);
+                    setMobileChatOpen(true);
                   }}
                   className={`w-full border-b border-slate-100
                     px-4 py-4 text-left hover:bg-slate-50 ${
@@ -1010,14 +1013,22 @@ async function checkPendingSendStatus() {
         </aside>
 
         {/* CENTER — MESSAGES */}
-        <section className="flex min-h-[650px] min-w-0 flex-col">
+        <section className={`${mobileChatOpen ? "flex" : "hidden"} h-[min(78dvh,900px)] min-h-[440px] min-w-0 max-w-full flex-col overflow-hidden lg:flex lg:h-auto lg:min-h-[650px]`}>
           {selectedLead ? (
             <>
               <div
-                className="flex items-center justify-between
-                border-b border-slate-200 px-5 py-4"
+                className="flex min-w-0 flex-col gap-3
+                border-b border-slate-200 px-3 py-3 sm:px-5 sm:py-4 xl:flex-row xl:items-center xl:justify-between"
               >
-                <div className="flex items-center gap-3">
+                <div className="flex min-w-0 items-center gap-2 sm:gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setMobileChatOpen(false)}
+                    aria-label="Back to conversations"
+                    className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg hover:bg-slate-100 lg:hidden"
+                  >
+                    <ArrowLeft size={20} />
+                  </button>
                   <div
                     className="flex h-10 w-10 items-center
                     justify-center rounded-full bg-emerald-50"
@@ -1025,15 +1036,15 @@ async function checkPendingSendStatus() {
                     <UserRound size={20} className="text-emerald-700" />
                   </div>
 
-                  <div>
-                    <h3 className="font-semibold">+{selectedLead.phone}</h3>
+                  <div className="min-w-0">
+                    <h3 className="truncate text-sm font-semibold sm:text-base">+{selectedLead.phone}</h3>
                     <p className="text-xs text-slate-500">
                       HYTOMA customer conversation
                     </p>
                   </div>
                 </div>
 
-                <div className="flex flex-wrap items-center justify-end gap-2">
+                <div className="flex min-w-0 flex-wrap items-center gap-2 xl:justify-end">
                   <span
                     className="hidden rounded-full bg-slate-100
       px-3 py-1 text-xs text-slate-600 sm:block"
@@ -1080,9 +1091,9 @@ async function checkPendingSendStatus() {
               <div
                 ref={chatScrollRef}
                 onScroll={handleChatScroll}
-                className="flex max-h-[550px] min-h-[480px]
-                  flex-1 flex-col gap-3 overflow-y-auto
-                  bg-[#efeae2] p-5 "
+                className="flex min-h-0 min-w-0 w-full flex-1 flex-col gap-3
+                  overflow-x-hidden overflow-y-auto bg-[#efeae2]
+                  p-3 sm:p-5 lg:max-h-[550px] lg:min-h-[480px]"
               >
                 {messagesLoading ? (
                   <div
@@ -1127,7 +1138,7 @@ async function checkPendingSendStatus() {
                 )}
               </div>
 
-              <div className="border-t border-slate-200 bg-white p-4">
+              <div className="min-w-0 border-t border-slate-200 bg-white p-3 sm:p-4">
                 <div className="mb-3 flex flex-wrap items-center gap-2">
                   {replyWindowLoading ? (
                     <span className="text-xs text-slate-500">
@@ -1207,7 +1218,7 @@ async function checkPendingSendStatus() {
                   </div>
                 )}
 
-                <form onSubmit={sendAdminReply} className="flex gap-2">
+                <form onSubmit={sendAdminReply} className="flex min-w-0 gap-2">
                   <textarea
                     value={replyText}
                     onChange={(event) => setReplyText(event.target.value)}
@@ -1258,8 +1269,8 @@ async function checkPendingSendStatus() {
                       replyWindow?.is_open !== true ||
                       !replyText.trim()
                     }
-                    className="flex items-center justify-center
-        rounded-xl bg-emerald-600 px-5 text-white
+                    className="flex shrink-0 items-center justify-center
+        rounded-xl bg-emerald-600 px-4 text-white sm:px-5
         hover:bg-emerald-700 disabled:cursor-not-allowed
         disabled:bg-slate-200 disabled:text-slate-500"
                   >
