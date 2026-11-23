@@ -21,7 +21,7 @@ export async function apiRequest(path, options = {}) {
   }
 
   const response = await fetch(
-    `${API_BASE_URL}/api${path}`,
+    `${API_BASE_URL}${path}`,
     {
       ...options,
       method,
