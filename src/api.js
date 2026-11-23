@@ -1,6 +1,10 @@
 
 let csrfToken = null;
 
+const API_BASE_URL = (
+  import.meta.env.VITE_API_BASE_URL || ""
+).replace(/\/$/, "");
+
 export async function apiRequest(path, options = {}) {
   const method = (options.method || "GET").toUpperCase();
 
@@ -16,12 +20,15 @@ export async function apiRequest(path, options = {}) {
     headers["X-CSRF-Token"] = csrfToken;
   }
 
-  const response = await fetch(`/api${path}`, {
-    ...options,
-    method,
-    headers,
-    credentials: "same-origin",
-  });
+  const response = await fetch(
+    `${API_BASE_URL}/api${path}`,
+    {
+      ...options,
+      method,
+      headers,
+      credentials: "include",
+    }
+  );
 
   let data;
   try {
