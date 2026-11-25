@@ -59,7 +59,6 @@ const sampleLeads = [
   },
 ];
 
-
 const navigation = [
   {
     id: "overview",
@@ -82,7 +81,6 @@ const navigation = [
     icon: ContactRound,
   },
 ];
-
 
 function Status({ value }) {
   const classes = {
@@ -276,8 +274,6 @@ function Overview({ navigate }) {
   );
 }
 
-
-
 function Leads() {
   const [leads, setLeads] = useState([]);
   const [search, setSearch] = useState("");
@@ -402,12 +398,16 @@ function Leads() {
   const filteredLeads = leads.filter((lead) => {
     const searchText = [
       lead.phone,
+      lead.project_type,
+      lead.automation_type,
       lead.project_status,
       lead.project_location,
       lead.completion_timeline,
+      lead.preferred_site_visit,
       lead.assigned_salesperson,
       lead.sales_status,
     ]
+
       .filter(Boolean)
       .join(" ")
       .toLowerCase();
@@ -443,7 +443,10 @@ function Leads() {
     const message = [
       "*HYTOMA Automation — Lead Details*",
       "",
+
       `Customer Number: +${lead.phone}`,
+      `Project Type: ${lead.project_type || "Not provided"}`,
+      `Automation Type: ${lead.automation_type || "Not provided"}`,
       `Project Status: ${formatValue(lead.project_status)}`,
       `Completion Timeline: ${lead.completion_timeline || "Not applicable"}`,
       `Project Location: ${lead.project_location || "Not provided"}`,
@@ -550,11 +553,13 @@ function Leads() {
       )}
 
       <div className="overflow-x-auto">
-        <table className="w-full min-w-[1050px] text-left text-sm">
+        <table className="w-full min-w-[1350px] text-left text-sm">
           <thead className="bg-slate-50 text-xs uppercase text-slate-500">
             <tr>
               {[
                 "Customer",
+                "Project Type",
+                "Automation Type",
                 "Project Status",
                 "Timeline",
                 "Location",
@@ -595,6 +600,18 @@ function Leads() {
                         Follow-up needed
                       </span>
                     )}
+                  </td>
+
+                  <td className="px-5 py-4">
+                    <span className="font-medium text-slate-800">
+                      {lead.project_type || "—"}
+                    </span>
+                  </td>
+
+                  <td className="px-5 py-4">
+                    <span className="block min-w-[140px] text-slate-700">
+                      {lead.automation_type || "—"}
+                    </span>
                   </td>
 
                   <td className="px-5 py-4">
@@ -821,8 +838,6 @@ function Dashboard({ admin, onLogout }) {
             </button>
           ))}
         </nav>
-
-        
       </aside>
 
       <div className="lg:pl-64">

@@ -1,49 +1,89 @@
-
 import { useEffect, useState } from "react";
 import { X, Save } from "lucide-react";
 import { apiRequest } from "./api";
 
 const fields = [
   {
+    name: "project_type",
+    label: "Project Type",
+    options: [
+      { value: "", label: "Not provided" },
+      { value: "2BHK", label: "2BHK" },
+      { value: "3BHK", label: "3BHK" },
+      { value: "Villa", label: "Villa" },
+      { value: "Apartment", label: "Apartment" },
+    ],
+  },
+  {
+    name: "automation_type",
+    label: "Automation Type",
+    options: [
+      { value: "", label: "Not provided" },
+      {
+        value: "Full Home Automation",
+        label: "Full Home Automation",
+      },
+      {
+        value: "Semi Automation",
+        label: "Semi Automation",
+      },
+      {
+        value: "Basic Automation",
+        label: "Basic Automation",
+      },
+    ],
+  },
+  {
     name: "project_status",
     label: "Project Status",
     options: [
-      "",
-      "Planning",
-      "Under construction",
-      "Interiors",
-      "Completed",
+      { value: "", label: "Not provided" },
+      { value: "planning", label: "Planning (Legacy)" },
+      {
+        value: "construction",
+        label: "Under Construction",
+      },
+      {
+        value: "interiors",
+        label: "Interior Work Going On",
+      },
+      { value: "completed", label: "Completed" },
     ],
   },
   {
     name: "completion_timeline",
     label: "Completion Timeline",
     options: [
-      "",
-      "Within 1 month",
-      "1-3 months",
-      "3-6 months",
-      "Over 6 months",
-    ],
-  },
-  {
-    name: "preferred_site_visit",
-    label: "Preferred Site Visit",
-    options: [
-      "",
-      "Morning",
-      "Afternoon",
-      "Evening",
-      "Not requested",
+      { value: "", label: "Not applicable" },
+      {
+        value: "Within 1 Month",
+        label: "Within 1 Month",
+      },
+      {
+        value: "1-2 Months",
+        label: "1–2 Months",
+      },
+      {
+        value: "3 Months",
+        label: "3 Months",
+      },
+      {
+        value: "1-3 months",
+        label: "1–3 Months (Legacy)",
+      },
+      {
+        value: "3-6 months",
+        label: "3–6 Months (Legacy)",
+      },
+      {
+        value: "More than 6 months",
+        label: "More Than 6 Months (Legacy)",
+      },
     ],
   },
 ];
 
-export default function EditLeadModal({
-  lead,
-  onClose,
-  onSaved,
-}) {
+export default function EditLeadModal({ lead, onClose, onSaved }) {
   const [form, setForm] = useState({});
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
@@ -52,6 +92,8 @@ export default function EditLeadModal({
     if (!lead) return;
 
     setForm({
+      project_status: lead.project_status || "",
+      automation_type: lead.automation_type || "",
       project_status: lead.project_status || "",
       completion_timeline: lead.completion_timeline || "",
       project_location: lead.project_location || "",
@@ -81,7 +123,7 @@ export default function EditLeadModal({
         {
           method: "PATCH",
           body: JSON.stringify(form),
-        }
+        },
       );
 
       await onSaved();
@@ -109,18 +151,15 @@ export default function EditLeadModal({
         aria-labelledby="edit-lead-title"
         className="w-full max-w-lg rounded-2xl bg-white shadow-xl"
       >
-        <div className="flex items-center justify-between
-          border-b border-slate-200 p-5">
+        <div
+          className="flex items-center justify-between
+          border-b border-slate-200 p-5"
+        >
           <div>
-            <h2
-              id="edit-lead-title"
-              className="text-lg font-semibold"
-            >
+            <h2 id="edit-lead-title" className="text-lg font-semibold">
               Edit Lead Details
             </h2>
-            <p className="mt-1 text-sm text-slate-500">
-              +{lead.phone}
-            </p>
+            <p className="mt-1 text-sm text-slate-500">+{lead.phone}</p>
           </div>
 
           <button
@@ -145,14 +184,14 @@ export default function EditLeadModal({
 
               <select
                 value={form[field.name] ?? ""}
-                onChange={(event) =>
-                  update(field.name, event.target.value)
-                }
+                onChange={(event) => update(field.name, event.target.value)}
                 className="w-full rounded-xl border
                   border-slate-200 bg-white px-4 py-3
                   text-sm outline-none focus:border-emerald-500"
               >
-                {!field.options.includes(form[field.name]) &&
+                {!field.options.some(
+                  (option) => option.value === form[field.name],
+                ) &&
                   form[field.name] && (
                     <option value={form[field.name]}>
                       {form[field.name]} (Current)
@@ -160,8 +199,8 @@ export default function EditLeadModal({
                   )}
 
                 {field.options.map((option) => (
-                  <option key={option} value={option}>
-                    {option || "Not provided"}
+                  <option key={option.value} value={option.value}>
+                    {option.label}
                   </option>
                 ))}
               </select>
@@ -186,21 +225,51 @@ export default function EditLeadModal({
             />
           </div>
 
-          <div className="rounded-xl bg-amber-50 p-3
-            text-xs text-amber-800">
-            Editing these details will not restart the
-            WhatsApp qualification bot or change the
-            lead's automated qualification status.
+          <div>
+            <label className="mb-2 block text-sm font-medium">
+              Preferred Site Visit
+            </label>
+
+            <input
+              type="text"
+              value={form.preferred_site_visit ?? ""}
+              onChange={(event) =>
+                update("preferred_site_visit", event.target.value)
+              }
+              maxLength={200}
+              placeholder="e.g. Friday, Tomorrow, 28 Nov 2026"
+              className="w-full rounded-xl border
+      border-slate-200 px-4 py-3 text-sm
+      outline-none focus:border-emerald-500"
+            />
+
+            <p className="mt-1 text-xs text-slate-500">
+              Customer's preferred date or day. Site visit requires team
+              confirmation.
+            </p>
+          </div>
+
+          <div
+            className="rounded-xl bg-amber-50 p-3
+            text-xs text-amber-800"
+          >
+            Editing these details will not restart the WhatsApp qualification
+            bot or change the lead's automated qualification status.
           </div>
 
           {error && (
-            <p role="alert" className="rounded-lg bg-red-50 p-3 text-sm text-red-700">
+            <p
+              role="alert"
+              className="rounded-lg bg-red-50 p-3 text-sm text-red-700"
+            >
               {error}
             </p>
           )}
 
-          <div className="flex justify-end gap-3 border-t
-            border-slate-100 pt-4">
+          <div
+            className="flex justify-end gap-3 border-t
+            border-slate-100 pt-4"
+          >
             <button
               type="button"
               onClick={onClose}
