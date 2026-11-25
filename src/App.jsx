@@ -18,10 +18,12 @@ import {
   ChevronRight,
   Copy,
   ContactRound,
+  Megaphone,
 } from "lucide-react";
 import SalesTeam from "./SalesTeam";
 import EditLeadModal from "./EditLeadModal";
 import Inbox from "./Inbox";
+import MarketingTemplates from "./MarketingTemplates";
 
 const sampleLeads = [
   {
@@ -80,6 +82,12 @@ const navigation = [
     label: "Sales Team",
     icon: ContactRound,
   },
+
+  {
+  id: "marketing",
+  label: "Marketing Templates",
+  icon: Megaphone,
+},
 ];
 
 function Status({ value }) {
@@ -886,6 +894,7 @@ function Dashboard({ admin, onLogout }) {
           {page === "inbox" && <Inbox />}
           {page === "leads" && <Leads />}
           {page === "sales" && <SalesTeam />}
+          {page === "marketing" && <MarketingTemplates />}
         </main>
       </div>
     </div>

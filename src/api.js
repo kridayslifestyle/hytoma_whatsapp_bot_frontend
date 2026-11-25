@@ -73,3 +73,13 @@ export async function logout() {
     csrfToken = null;
   }
 }
+
+
+/**
+ * HYTOMA Marketing
+ * Retrieve approved WhatsApp marketing templates.
+ */
+export async function getMarketingTemplates() {
+  return apiRequest("/admin/marketing/templates");
+}
+
