@@ -1,18 +1,13 @@
-
 import { useState } from "react";
-import { createMarketingTemplate } from "./api";
+import { createMarketingTemplate, uploadMarketingMedia } from "./api";
 
-export default function CreateMarketingTemplate({
-  onCreated,
-  onCancel,
-}) {
+export default function CreateMarketingTemplate({ onCreated, onCancel }) {
   const [name, setName] = useState("");
   const [category, setCategory] = useState("MARKETING");
   const [language, setLanguage] = useState("en_US");
   const [body, setBody] = useState("");
   const [expiration, setExpiration] = useState(10);
-  const [securityRecommendation, setSecurityRecommendation] =
-    useState(true);
+  const [securityRecommendation, setSecurityRecommendation] = useState(true);
 
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
@@ -28,7 +23,7 @@ export default function CreateMarketingTemplate({
     if (!/^[a-z0-9_]{1,512}$/.test(normalizedName)) {
       setError(
         "Template name must contain only lowercase letters, " +
-        "numbers and underscores."
+          "numbers and underscores.",
       );
       return;
     }
@@ -41,7 +36,7 @@ export default function CreateMarketingTemplate({
     if (
       !window.confirm(
         `Submit this ${category.toLowerCase()} template ` +
-        "to Meta for review?"
+          "to Meta for review?",
       )
     ) {
       return;
@@ -60,21 +55,38 @@ export default function CreateMarketingTemplate({
       };
 
       if (isAuthentication) {
-        payload.add_security_recommendation =
-          securityRecommendation;
+        payload.add_security_recommendation = securityRecommendation;
         payload.code_expiration_minutes = Number(expiration);
+      }
+
+      if (!isAuthentication && headerType !== "NONE") {
+        if (!mediaFile) {
+          throw new Error("Please select an image or video before submitting.");
+        }
+
+        setUploading(true);
+
+        const uploaded = await uploadMarketingMedia(mediaFile);
+
+        setUploading(false);
+
+        if (!uploaded.media_handle) {
+          throw new Error("Meta did not return a media handle.");
+        }
+
+        payload.media_type = headerType;
+        payload.media_handle = uploaded.media_handle;
       }
 
       const result = await createMarketingTemplate(payload);
 
-      setSuccess(
-        result.message || "Template submitted to Meta."
-      );
+      setSuccess(result.message || "Template submitted to Meta.");
 
       onCreated?.();
     } catch (err) {
       setError(err.message || "Template submission failed.");
     } finally {
+      setUploading(false);
       setSubmitting(false);
     }
   }
@@ -114,9 +126,7 @@ export default function CreateMarketingTemplate({
         required
       />
 
-      <label htmlFor="template-category">
-        Template Category
-      </label>
+      <label htmlFor="template-category">Template Category</label>
       <select
         id="template-category"
         value={category}
@@ -151,6 +161,53 @@ export default function CreateMarketingTemplate({
         <option value="hi">Hindi</option>
       </select>
 
+      <div style={{ marginBottom: 20 }}>
+        <label htmlFor="header-type">Template Header</label>
+
+        <select
+          id="header-type"
+          value={headerType}
+          onChange={(e) => {
+            setHeaderType(e.target.value);
+            setMediaFile(null);
+            setError("");
+          }}
+          style={inputStyle}
+        >
+          <option value="NONE">No Header</option>
+          <option value="IMAGE">Image Header</option>
+          <option value="VIDEO">Video Header</option>
+        </select>
+
+        {headerType !== "NONE" && (
+          <>
+            <label htmlFor="header-media">
+              Upload {headerType === "IMAGE" ? "Image" : "Video"}
+            </label>
+
+            <input
+              id="header-media"
+              type="file"
+              accept={
+                headerType === "IMAGE" ? "image/jpeg,image/png" : "video/mp4"
+              }
+              onChange={(e) => {
+                setMediaFile(e.target.files?.[0] || null);
+                setError("");
+              }}
+              style={inputStyle}
+              required
+            />
+
+            <p style={{ fontSize: 12, color: "#6b7280" }}>
+              {headerType === "IMAGE"
+                ? "JPG or PNG, maximum 5 MB."
+                : "MP4, maximum 16 MB."}
+            </p>
+          </>
+        )}
+      </div>
+
       {!isAuthentication ? (
         <>
           <label htmlFor="template-body">Message Body</label>
@@ -176,13 +233,11 @@ export default function CreateMarketingTemplate({
           <h3>Authentication OTP Settings</h3>
 
           <p>
-            Meta generates the verification-message format.
-            You cannot enter a custom promotional message.
+            Meta generates the verification-message format. You cannot enter a
+            custom promotional message.
           </p>
 
-          <label htmlFor="otp-expiration">
-            Code Expiration (minutes)
-          </label>
+          <label htmlFor="otp-expiration">Code Expiration (minutes)</label>
           <input
             id="otp-expiration"
             type="number"
@@ -198,9 +253,7 @@ export default function CreateMarketingTemplate({
             <input
               type="checkbox"
               checked={securityRecommendation}
-              onChange={(e) =>
-                setSecurityRecommendation(e.target.checked)
-              }
+              onChange={(e) => setSecurityRecommendation(e.target.checked)}
               style={{ marginRight: 8 }}
             />
             Include security recommendation
@@ -229,9 +282,7 @@ export default function CreateMarketingTemplate({
             {securityRecommendation && (
               <p>For your security, do not share this code.</p>
             )}
-            <p>
-              This code expires in {expiration} minutes.
-            </p>
+            <p>This code expires in {expiration} minutes.</p>
             <div
               style={{
                 background: "white",
@@ -262,14 +313,14 @@ export default function CreateMarketingTemplate({
 
       <div style={{ display: "flex", gap: 12 }}>
         <button type="submit" disabled={submitting}>
-          {submitting ? "Submitting..." : "Submit to Meta"}
+          {uploading
+            ? "Uploading Media..."
+            : submitting
+              ? "Submitting..."
+              : "Submit to Meta"}
         </button>
 
-        <button
-          type="button"
-          onClick={onCancel}
-          disabled={submitting}
-        >
+        <button type="button" onClick={onCancel} disabled={submitting}>
           Cancel
         </button>
       </div>
