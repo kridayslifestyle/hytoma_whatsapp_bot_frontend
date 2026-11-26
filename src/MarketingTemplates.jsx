@@ -46,6 +46,17 @@ export default function MarketingTemplates() {
         </button>
       </div>
 
+      {showCreateForm && (
+        <div style={{ marginBottom: 24 }}>
+          <CreateMarketingTemplate
+            onCreated={() => {
+              loadTemplates();
+            }}
+            onCancel={() => setShowCreateForm(false)}
+          />
+        </div>
+      )}
+
       {loading && <p>Loading templates...</p>}
 
       {error && (
@@ -113,16 +124,6 @@ export default function MarketingTemplates() {
             ))}
           </div>
         </>
-      )}
-      {showCreateForm && (
-        <div style={{ marginBottom: 24 }}>
-          <CreateMarketingTemplate
-            onCreated={() => {
-              loadTemplates();
-            }}
-            onCancel={() => setShowCreateForm(false)}
-          />
-        </div>
       )}
     </div>
   );
