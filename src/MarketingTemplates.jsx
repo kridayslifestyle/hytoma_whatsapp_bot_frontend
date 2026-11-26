@@ -1,11 +1,14 @@
-
 import { useEffect, useMemo, useState } from "react";
 import {
   Plus,
   RefreshCw,
   Search,
-  ChevronDown,
-  ChevronUp,
+  Image as ImageIcon,
+  Video,
+  Phone,
+  ExternalLink,
+  Reply,
+  Copy,
   FileText,
   CheckCircle2,
   Clock3,
@@ -64,68 +67,69 @@ function StatusBadge({ status }) {
 
 function TemplatePreview({ template }) {
   const components = template.components || [];
-
-  if (components.length === 0) {
-    return (
-      <p className="text-sm text-gray-500">
-        No preview components available.
-      </p>
-    );
-  }
+  const header = components.find((c) => c.type === "HEADER");
+  const body = components.find((c) => c.type === "BODY");
+  const footer = components.find((c) => c.type === "FOOTER");
+  const buttons = components.filter((c) => c.type === "BUTTONS")
+    .flatMap((c) => c.buttons || []);
+  const isAuth = template.category === "AUTHENTICATION";
+  const media = header?.format === "IMAGE" || header?.format === "VIDEO";
+  const MediaIcon = header?.format === "VIDEO" ? Video : ImageIcon;
 
   return (
-    <div className="space-y-4">
-      {components.map((component, index) => (
-        <div
-          key={index}
-          className="rounded-lg bg-gray-50 p-4"
-        >
-          <p className="mb-2 text-xs font-semibold uppercase text-gray-500">
-            {component.type}
-          </p>
-
-          {component.text && (
-            <p className="whitespace-pre-wrap break-words text-sm text-gray-800">
-              {component.text}
-            </p>
-          )}
-
-          {component.format && (
-            <p className="text-sm text-gray-600">
-              Media type: {component.format}
-            </p>
-          )}
-
-          {component.example && (
-            <p className="mt-2 text-xs text-gray-500">
-              Template includes example values.
-            </p>
-          )}
-
-          {component.add_security_recommendation && (
-            <p className="text-sm text-gray-700">
-              Security recommendation enabled
-            </p>
-          )}
-
-          {component.code_expiration_minutes != null && (
-            <p className="text-sm text-gray-700">
-              OTP expires in{" "}
-              {component.code_expiration_minutes} minutes
-            </p>
-          )}
-
-          {component.buttons?.map((button, i) => (
-            <div
-              key={i}
-              className="mt-2 rounded-lg border bg-white px-3 py-2 text-center text-sm font-medium"
-            >
-              {button.text || button.otp_type || button.type}
+    <article className="flex min-w-0 flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm transition-shadow hover:shadow-md">
+      <div className="flex flex-1 flex-col p-4" style={{
+        backgroundColor: "#eeeae2",
+        backgroundImage: "radial-gradient(#d7d2c9 0.7px, transparent 0.7px)",
+        backgroundSize: "16px 16px",
+      }}>
+        <div className="space-y-3 rounded-xl bg-white p-3.5 shadow-sm">
+          {media && (
+            <div className="flex aspect-[16/10] flex-col items-center justify-center gap-2 rounded-lg border border-slate-200 bg-slate-50 text-slate-500">
+              <div className="rounded-full bg-white p-4 text-emerald-700 shadow-sm">
+                <MediaIcon size={28} aria-hidden="true" />
+              </div>
+              <span className="text-xs font-medium">{header.format === "VIDEO" ? "Video header" : "Image header"}</span>
             </div>
-          ))}
+          )}
+          {header?.format === "TEXT" && header.text && (
+            <p className="whitespace-pre-wrap break-words text-sm font-semibold text-slate-900">{header.text}</p>
+          )}
+          {header?.format === "DOCUMENT" && (
+            <div className="flex items-center gap-2 rounded-lg bg-slate-50 p-3 text-sm text-slate-600"><FileText size={20} /> Document header</div>
+          )}
+          <p className="whitespace-pre-wrap break-words text-sm leading-relaxed text-slate-800">
+            {body?.text || (isAuth ? "Your verification code is {{1}}." : "No message text available.")}
+          </p>
+          {body?.add_security_recommendation && !body?.text && (
+            <p className="text-sm text-slate-700">For your security, do not share this code.</p>
+          )}
+          {footer?.text && <p className="whitespace-pre-wrap break-words text-xs leading-relaxed text-slate-500">{footer.text}</p>}
+          {!footer?.text && footer?.code_expiration_minutes != null && (
+            <p className="text-xs text-slate-500">This code expires in {footer.code_expiration_minutes} minutes.</p>
+          )}
         </div>
-      ))}
-    </div>
+        {buttons.map((button, i) => {
+          const Icon = button.type === "PHONE_NUMBER" ? Phone :
+            button.type === "URL" ? ExternalLink :
+            button.type === "OTP" || button.type === "COPY_CODE" ? Copy : Reply;
+          return (
+            <div key={i} className="mt-2 flex items-center justify-center gap-2 rounded-lg bg-white px-3 py-2.5 text-center text-sm font-semibold text-emerald-700 shadow-sm">
+              <Icon size={16} className="shrink-0" aria-hidden="true" />
+              <span className="break-words min-w-0">{button.text || button.otp_type || button.type}</span>
+            </div>
+          );
+        })}
+      </div>
+      <div className="border-t border-slate-200 p-4">
+        <h3 className="break-words text-sm font-semibold text-slate-900">{template.name}</h3>
+        <div className="mt-3 flex flex-wrap items-center gap-2">
+          <span className="rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-800">{template.category}</span>
+          <StatusBadge status={template.status} />
+          <span className="text-xs text-slate-500">{template.language}</span>
+        </div>
+      </div>
+    </article>
   );
 }
 
@@ -139,7 +143,6 @@ export default function MarketingTemplates() {
   const [categoryFilter, setCategoryFilter] = useState("ALL");
   const [statusFilter, setStatusFilter] = useState("ALL");
   const [search, setSearch] = useState("");
-  const [expandedId, setExpandedId] = useState(null);
 
   async function loadTemplates() {
     setLoading(true);
@@ -402,52 +405,11 @@ export default function MarketingTemplates() {
             </div>
           )}
 
-          {filteredTemplates.map((template) => {
-            const key = getTemplateKey(template);
-            const expanded = expandedId === key;
-
-            return (
-              <div
-                key={key}
-                className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm"
-              >
-                <button
-                  type="button"
-                  onClick={() =>
-                    setExpandedId(expanded ? null : key)
-                  }
-                  aria-expanded={expanded}
-                  className="flex w-full items-center justify-between gap-4 p-4 text-left hover:bg-gray-50"
-                >
-                  <div className="min-w-0 flex-1">
-                    <h3 className="break-all text-sm font-semibold text-gray-900">
-                      {template.name}
-                    </h3>
-
-                    <p className="mt-2 text-xs text-gray-500">
-                      {template.category} · {template.language}
-                    </p>
-                  </div>
-
-                  <div className="flex shrink-0 items-center gap-3">
-                    <StatusBadge status={template.status} />
-
-                    {expanded ? (
-                      <ChevronUp size={18} />
-                    ) : (
-                      <ChevronDown size={18} />
-                    )}
-                  </div>
-                </button>
-
-                {expanded && (
-                  <div className="border-t border-gray-200 p-4">
-                    <TemplatePreview template={template} />
-                  </div>
-                )}
-              </div>
-            );
-          })}
+          <div className="grid grid-cols-1 items-start gap-5 md:grid-cols-2 xl:grid-cols-3">
+            {filteredTemplates.map((template) => (
+              <TemplatePreview key={getTemplateKey(template)} template={template} />
+            ))}
+          </div>
         </div>
       )}
     </div>
