@@ -9,6 +9,12 @@ export default function CreateMarketingTemplate({ onCreated, onCancel }) {
   const [expiration, setExpiration] = useState(10);
   const [securityRecommendation, setSecurityRecommendation] = useState(true);
 
+  const [headerType, setHeaderType] = useState("NONE");
+
+  const [mediaFile, setMediaFile] = useState(null);
+
+
+  const [uploading, setUploading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
@@ -161,6 +167,7 @@ export default function CreateMarketingTemplate({ onCreated, onCancel }) {
         <option value="hi">Hindi</option>
       </select>
 
+    {!isAuthentication && (
       <div style={{ marginBottom: 20 }}>
         <label htmlFor="header-type">Template Header</label>
 
@@ -207,6 +214,7 @@ export default function CreateMarketingTemplate({ onCreated, onCancel }) {
           </>
         )}
       </div>
+      )}
 
       {!isAuthentication ? (
         <>
