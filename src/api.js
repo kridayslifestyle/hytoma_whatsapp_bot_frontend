@@ -83,3 +83,12 @@ export async function getMarketingTemplates() {
   return apiRequest("/admin/marketing/templates");
 }
 
+
+export async function createMarketingTemplate(payload) {
+  return apiRequest("/admin/marketing/templates", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}
+
+

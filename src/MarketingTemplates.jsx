@@ -1,10 +1,10 @@
-
 import { useEffect, useState } from "react";
 import { getMarketingTemplates } from "./api";
-
+import CreateMarketingTemplate from "./CreateMarketingTemplate";
 export default function MarketingTemplates() {
   const [templates, setTemplates] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [showCreateForm, setShowCreateForm] = useState(false);
   const [error, setError] = useState("");
 
   async function loadTemplates() {
@@ -30,16 +30,19 @@ export default function MarketingTemplates() {
       <div style={{ marginBottom: 24 }}>
         <h2>WhatsApp Marketing Templates</h2>
         <p>
-          Approved templates available in your Meta
-          WhatsApp Business Account.
+          Approved templates available in your Meta WhatsApp Business Account.
         </p>
+
+        <button type="button" onClick={loadTemplates} disabled={loading}>
+          {loading ? "Loading..." : "Refresh Templates"}
+        </button>
 
         <button
           type="button"
-          onClick={loadTemplates}
-          disabled={loading}
+          onClick={() => setShowCreateForm(true)}
+          style={{ marginLeft: 12 }}
         >
-          {loading ? "Loading..." : "Refresh Templates"}
+          + Create New Template
         </button>
       </div>
 
@@ -54,15 +57,13 @@ export default function MarketingTemplates() {
       {!loading && !error && (
         <>
           <p>
-            <strong>{templates.length}</strong> approved
-            marketing templates
+            <strong>{templates.length}</strong> approved marketing templates
           </p>
 
           <div
             style={{
               display: "grid",
-              gridTemplateColumns:
-                "repeat(auto-fit, minmax(280px, 1fr))",
+              gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))",
               gap: 16,
               marginTop: 20,
             }}
@@ -91,35 +92,37 @@ export default function MarketingTemplates() {
 
                 <hr />
 
-                {(template.components || []).map(
-                  (component, index) => (
-                    <div key={index}>
-                      <strong>{component.type}</strong>
+                {(template.components || []).map((component, index) => (
+                  <div key={index}>
+                    <strong>{component.type}</strong>
 
-                      {component.text && (
-                        <p style={{ whiteSpace: "pre-wrap" }}>
-                          {component.text}
-                        </p>
-                      )}
+                    {component.text && (
+                      <p style={{ whiteSpace: "pre-wrap" }}>{component.text}</p>
+                    )}
 
-                      {component.format && (
-                        <p>
-                          Media format: {component.format}
-                        </p>
-                      )}
+                    {component.format && (
+                      <p>Media format: {component.format}</p>
+                    )}
 
-                      {component.buttons?.map((button, i) => (
-                        <p key={i}>
-                          Button: {button.text || button.type}
-                        </p>
-                      ))}
-                    </div>
-                  )
-                )}
+                    {component.buttons?.map((button, i) => (
+                      <p key={i}>Button: {button.text || button.type}</p>
+                    ))}
+                  </div>
+                ))}
               </div>
             ))}
           </div>
         </>
+      )}
+      {showCreateForm && (
+        <div style={{ marginBottom: 24 }}>
+          <CreateMarketingTemplate
+            onCreated={() => {
+              loadTemplates();
+            }}
+            onCancel={() => setShowCreateForm(false)}
+          />
+        </div>
       )}
     </div>
   );
