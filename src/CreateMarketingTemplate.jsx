@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { createMarketingTemplate, uploadMarketingMedia } from "./api";
+import WhatsAppTemplatePreview from "./WhatsAppTemplatePreview";
 
 export default function CreateMarketingTemplate({ onCreated, onCancel }) {
   const [name, setName] = useState("");
@@ -13,8 +14,42 @@ export default function CreateMarketingTemplate({ onCreated, onCancel }) {
 
   const [mediaFile, setMediaFile] = useState(null);
 
-
   const [uploading, setUploading] = useState(false);
+
+  // Footer and interactive template buttons
+  const [footer, setFooter] = useState("");
+  const [buttons, setButtons] = useState([]);
+
+  function addButton(type) {
+    const counts = buttons.filter((b) => b.type === type).length;
+
+    if (buttons.length >= 5) return;
+    if (type === "QUICK_REPLY" && counts >= 3) return;
+    if (type !== "QUICK_REPLY" && counts >= 1) return;
+
+    setButtons((previous) => [
+      ...previous,
+      {
+        type,
+        text: "",
+        ...(type === "PHONE_NUMBER" ? { phone_number: "" } : {}),
+        ...(type === "URL" ? { url: "" } : {}),
+      },
+    ]);
+  }
+
+  function updateButton(index, field, value) {
+    setButtons((previous) =>
+      previous.map((button, i) =>
+        i === index ? { ...button, [field]: value } : button,
+      ),
+    );
+  }
+
+  function removeButton(index) {
+    setButtons((previous) => previous.filter((_, i) => i !== index));
+  }
+
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
@@ -58,6 +93,17 @@ export default function CreateMarketingTemplate({ onCreated, onCancel }) {
         category,
         language,
         body: isAuthentication ? "" : body.trim(),
+        footer: isAuthentication ? "" : footer.trim(),
+        buttons: isAuthentication
+          ? []
+          : buttons.map((button) => ({
+              ...button,
+              text: button.text.trim(),
+              ...(button.phone_number !== undefined
+                ? { phone_number: button.phone_number.trim() }
+                : {}),
+              ...(button.url !== undefined ? { url: button.url.trim() } : {}),
+            })),
       };
 
       if (isAuthentication) {
@@ -167,53 +213,53 @@ export default function CreateMarketingTemplate({ onCreated, onCancel }) {
         <option value="hi">Hindi</option>
       </select>
 
-    {!isAuthentication && (
-      <div style={{ marginBottom: 20 }}>
-        <label htmlFor="header-type">Template Header</label>
+      {!isAuthentication && (
+        <div style={{ marginBottom: 20 }}>
+          <label htmlFor="header-type">Template Header</label>
 
-        <select
-          id="header-type"
-          value={headerType}
-          onChange={(e) => {
-            setHeaderType(e.target.value);
-            setMediaFile(null);
-            setError("");
-          }}
-          style={inputStyle}
-        >
-          <option value="NONE">No Header</option>
-          <option value="IMAGE">Image Header</option>
-          <option value="VIDEO">Video Header</option>
-        </select>
+          <select
+            id="header-type"
+            value={headerType}
+            onChange={(e) => {
+              setHeaderType(e.target.value);
+              setMediaFile(null);
+              setError("");
+            }}
+            style={inputStyle}
+          >
+            <option value="NONE">No Header</option>
+            <option value="IMAGE">Image Header</option>
+            <option value="VIDEO">Video Header</option>
+          </select>
 
-        {headerType !== "NONE" && (
-          <>
-            <label htmlFor="header-media">
-              Upload {headerType === "IMAGE" ? "Image" : "Video"}
-            </label>
+          {headerType !== "NONE" && (
+            <>
+              <label htmlFor="header-media">
+                Upload {headerType === "IMAGE" ? "Image" : "Video"}
+              </label>
 
-            <input
-              id="header-media"
-              type="file"
-              accept={
-                headerType === "IMAGE" ? "image/jpeg,image/png" : "video/mp4"
-              }
-              onChange={(e) => {
-                setMediaFile(e.target.files?.[0] || null);
-                setError("");
-              }}
-              style={inputStyle}
-              required
-            />
+              <input
+                id="header-media"
+                type="file"
+                accept={
+                  headerType === "IMAGE" ? "image/jpeg,image/png" : "video/mp4"
+                }
+                onChange={(e) => {
+                  setMediaFile(e.target.files?.[0] || null);
+                  setError("");
+                }}
+                style={inputStyle}
+                required
+              />
 
-            <p style={{ fontSize: 12, color: "#6b7280" }}>
-              {headerType === "IMAGE"
-                ? "JPG or PNG, maximum 5 MB."
-                : "MP4, maximum 16 MB."}
-            </p>
-          </>
-        )}
-      </div>
+              <p style={{ fontSize: 12, color: "#6b7280" }}>
+                {headerType === "IMAGE"
+                  ? "JPG or PNG, maximum 5 MB."
+                  : "MP4, maximum 16 MB."}
+              </p>
+            </>
+          )}
+        </div>
       )}
 
       {!isAuthentication ? (
@@ -273,39 +319,194 @@ export default function CreateMarketingTemplate({ onCreated, onCancel }) {
 
       <h3>WhatsApp Message Preview</h3>
 
-      <div
-        style={{
-          background: "#e7f5ea",
-          color: "#111827",
-          padding: 20,
-          borderRadius: 12,
-          whiteSpace: "pre-wrap",
-          overflowWrap: "anywhere",
-          marginBottom: 20,
-        }}
-      >
-        {isAuthentication ? (
-          <>
-            <p>Your verification code is [CODE]</p>
-            {securityRecommendation && (
-              <p>For your security, do not share this code.</p>
-            )}
-            <p>This code expires in {expiration} minutes.</p>
+
+      {!isAuthentication && (
+        <section style={{ marginBottom: 24 }}>
+          <h3>Footer</h3>
+
+          <label htmlFor="template-footer">
+            Optional Footer
+          </label>
+
+          <input
+            id="template-footer"
+            value={footer}
+            onChange={(e) => setFooter(e.target.value)}
+            placeholder="HYTOMA Automation LLP"
+            maxLength={60}
+            style={inputStyle}
+          />
+
+          <h3>Interactive Buttons</h3>
+          <p style={{ color: "#6b7280" }}>
+            Add a phone number, website or quick reply button.
+          </p>
+
+          <div
+            style={{
+              display: "flex",
+              gap: 10,
+              flexWrap: "wrap",
+              marginBottom: 20,
+            }}
+          >
+            <button
+              type="button"
+              onClick={() => addButton("PHONE_NUMBER")}
+              disabled={
+                submitting ||
+                buttons.length >= 5 ||
+                buttons.some((b) => b.type === "PHONE_NUMBER")
+              }
+            >
+              + Phone CTA
+            </button>
+
+            <button
+              type="button"
+              onClick={() => addButton("URL")}
+              disabled={
+                submitting ||
+                buttons.length >= 5 ||
+                buttons.some((b) => b.type === "URL")
+              }
+            >
+              + Website CTA
+            </button>
+
+            <button
+              type="button"
+              onClick={() => addButton("QUICK_REPLY")}
+              disabled={
+                submitting ||
+                buttons.length >= 5 ||
+                buttons.filter((b) => b.type === "QUICK_REPLY")
+                  .length >= 3
+              }
+            >
+              + Quick Reply
+            </button>
+          </div>
+
+          {buttons.map((button, index) => (
             <div
+              key={index}
               style={{
-                background: "white",
-                padding: 10,
-                textAlign: "center",
-                borderRadius: 8,
+                padding: 16,
+                marginBottom: 14,
+                border: "1px solid #d1d5db",
+                borderRadius: 10,
+                background: "#f9fafb",
               }}
             >
-              Copy Code
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                  marginBottom: 12,
+                }}
+              >
+                <strong>
+                  {button.type === "PHONE_NUMBER"
+                    ? "Phone CTA"
+                    : button.type === "URL"
+                      ? "Website CTA"
+                      : "Quick Reply"}
+                </strong>
+
+                <button
+                  type="button"
+                  onClick={() => removeButton(index)}
+                  disabled={submitting}
+                >
+                  Remove
+                </button>
+              </div>
+
+              <label htmlFor={`button-text-${index}`}>
+                Button Label
+              </label>
+
+              <input
+                id={`button-text-${index}`}
+                value={button.text}
+                onChange={(e) =>
+                  updateButton(index, "text", e.target.value)
+                }
+                placeholder={
+                  button.type === "PHONE_NUMBER"
+                    ? "Get Offer Details"
+                    : button.type === "URL"
+                      ? "Visit Website"
+                      : "I'm Interested"
+                }
+                maxLength={25}
+                style={inputStyle}
+                required
+              />
+
+              {button.type === "PHONE_NUMBER" && (
+                <>
+                  <label htmlFor={`phone-${index}`}>
+                    Phone Number (with country code)
+                  </label>
+
+                  <input
+                    id={`phone-${index}`}
+                    type="tel"
+                    value={button.phone_number}
+                    onChange={(e) =>
+                      updateButton(
+                        index,
+                        "phone_number",
+                        e.target.value
+                      )
+                    }
+                    placeholder="+919876543210"
+                    style={inputStyle}
+                    required
+                  />
+                </>
+              )}
+
+              {button.type === "URL" && (
+                <>
+                  <label htmlFor={`url-${index}`}>
+                    Website URL
+                  </label>
+
+                  <input
+                    id={`url-${index}`}
+                    type="url"
+                    value={button.url}
+                    onChange={(e) =>
+                      updateButton(index, "url", e.target.value)
+                    }
+                    placeholder="https://example.com"
+                    style={inputStyle}
+                    required
+                  />
+                </>
+              )}
             </div>
-          </>
-        ) : (
-          body || "Your message preview appears here."
-        )}
-      </div>
+          ))}
+        </section>
+      )}
+
+
+      
+      <WhatsAppTemplatePreview
+        body={body}
+        footer={footer}
+        headerType={headerType}
+        mediaFile={mediaFile}
+        buttons={buttons}
+        isAuthentication={isAuthentication}
+        securityRecommendation={securityRecommendation}
+        expiration={expiration}
+      />
+
 
       {error && (
         <p role="alert" style={{ color: "crimson" }}>
