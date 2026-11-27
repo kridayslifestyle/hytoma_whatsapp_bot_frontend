@@ -24,6 +24,7 @@ import SalesTeam from "./SalesTeam";
 import EditLeadModal from "./EditLeadModal";
 import Inbox from "./Inbox";
 import MarketingTemplates from "./MarketingTemplates";
+import ContactsManager from "./contacts/ContactsManager";
 
 const sampleLeads = [
   {
@@ -84,10 +85,16 @@ const navigation = [
   },
 
   {
-  id: "marketing",
-  label: "Marketing Templates",
-  icon: Megaphone,
-},
+    id: "marketing",
+    label: "Marketing Templates",
+    icon: Megaphone,
+  },
+
+  {
+    id: "contacts",
+    label: "Contacts Manager",
+    icon: Users,
+  },
 ];
 
 function Status({ value }) {
@@ -895,6 +902,7 @@ function Dashboard({ admin, onLogout }) {
           {page === "leads" && <Leads />}
           {page === "sales" && <SalesTeam />}
           {page === "marketing" && <MarketingTemplates />}
+          {page === "contacts" && <ContactsManager />}
         </main>
       </div>
     </div>
