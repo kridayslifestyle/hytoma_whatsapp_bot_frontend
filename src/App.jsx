@@ -26,6 +26,7 @@ import Inbox from "./Inbox";
 import MarketingTemplates from "./MarketingTemplates";
 import ContactsManager from "./contacts/ContactsManager";
 import CampaignManager from "./campaigns/CampaignManager";
+import MarketingInbox from "./marketing_inbox/MarketingInbox";
 
 const sampleLeads = [
   {
@@ -101,6 +102,12 @@ const navigation = [
     id: "campaigns",
     label: "Campaign Manager",
     icon: Megaphone,
+  },
+
+  {
+    id: "marketing-inbox",
+    label: "Marketing Inbox",
+    icon: MessageCircle,
   },
 ];
 
@@ -911,6 +918,7 @@ function Dashboard({ admin, onLogout }) {
           {page === "marketing" && <MarketingTemplates />}
           {page === "contacts" && <ContactsManager />}
           {page === "campaigns" && <CampaignManager />}
+          {page === "marketing-inbox" && <MarketingInbox />}
         </main>
       </div>
     </div>
