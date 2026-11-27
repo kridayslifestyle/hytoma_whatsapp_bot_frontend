@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 
 import { apiRequest } from "../api";
+import CampaignDetails from "./CampaignDetails";
 
 const types = {
   customer: "Customers",
@@ -47,7 +48,7 @@ const post = (path, body) =>
 // WhatsApp Template Preview
 // --------------------------------------------------
 
-function TemplatePreview({ template }) {
+function TemplatePreview({ template, mediaUrl, mediaFilename }) {
   const components = template?.components || [];
 
   const header = components.find((item) => item.type === "HEADER");
@@ -57,7 +58,9 @@ function TemplatePreview({ template }) {
   const footer = components.find((item) => item.type === "FOOTER");
 
   const buttons = components
+
     .filter((item) => item.type === "BUTTONS")
+
     .flatMap((item) => item.buttons || []);
 
   const MediaIcon =
@@ -72,30 +75,60 @@ function TemplatePreview({ template }) {
       className="mx-auto w-full max-w-[380px] rounded-xl bg-[#eeeae2] p-4"
       style={{
         backgroundImage: "radial-gradient(#d7d2c9 0.7px, transparent 0.7px)",
+
         backgroundSize: "16px 16px",
       }}
     >
       <div className="space-y-3 rounded-xl bg-white p-4 text-sm shadow-sm">
-        {["IMAGE", "VIDEO", "DOCUMENT"].includes(header?.format) && (
-          <div className="flex h-[190px] w-full flex-col items-center justify-center gap-2 rounded-lg border border-slate-200 bg-slate-100 text-slate-500">
-            <MediaIcon size={32} className="text-emerald-700" />
+        {/* Media Header */}
 
-            <span>{header.format} header (media configured later)</span>
+        {["IMAGE", "VIDEO", "DOCUMENT"].includes(header?.format) && (
+          <div className="flex h-[190px] w-full flex-col items-center justify-center gap-2 overflow-hidden rounded-lg border border-slate-200 bg-slate-100 text-slate-500">
+            {mediaUrl && header.format === "IMAGE" ? (
+              <img
+                src={mediaUrl}
+                alt="Campaign media"
+                className="h-full w-full rounded-lg object-contain"
+              />
+            ) : mediaUrl && header.format === "VIDEO" ? (
+              <video
+                src={mediaUrl}
+                controls
+                className="h-full w-full rounded-lg object-contain"
+              />
+            ) : (
+              <>
+                <MediaIcon size={32} className="text-emerald-700" />
+
+                <span className="max-w-full break-all px-2 text-center">
+                  {mediaFilename ||
+                    header.format + " header (media configured later)"}
+                </span>
+              </>
+            )}
           </div>
         )}
+
+        {/* Text Header */}
 
         {header?.format === "TEXT" && (
           <p className="font-semibold">{header.text}</p>
         )}
 
-        <p className="whitespace-pre-wrap break-words">
+        {/* Message Body */}
+
+        <p className="whitespace-pre-wrap break-words leading-relaxed">
           {body?.text || "Select a template to preview."}
         </p>
+
+        {/* Footer */}
 
         {footer?.text && (
           <p className="text-xs text-slate-500">{footer.text}</p>
         )}
       </div>
+
+      {/* Message Buttons */}
 
       {buttons.map((button, index) => {
         const Icon =
@@ -111,6 +144,7 @@ function TemplatePreview({ template }) {
             className="mt-2 flex items-center justify-center gap-2 rounded-lg bg-white p-3 text-sm font-semibold text-emerald-700 shadow-sm"
           >
             <Icon size={16} />
+
             {button.text}
           </div>
         );
@@ -610,160 +644,13 @@ export default function CampaignManager() {
 
       {/* Campaign Details Panel */}
 
-      {/* Campaign Details Panel */}
-
       {details && (
-        <section className={panel + " space-y-5"}>
-          {/* Header */}
-
-          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 pb-4">
-            <div>
-              <h3 className="text-xl font-bold text-slate-900">
-                {details.campaign.name}
-              </h3>
-
-              <p className="mt-1 text-sm text-slate-500">
-                Campaign #{details.campaign.id}
-              </p>
-            </div>
-
-            <div className="flex items-center gap-3">
-              <span className="rounded-full bg-slate-100 px-3 py-1 text-sm font-medium capitalize text-slate-700">
-                {details.campaign.status}
-              </span>
-
-              <button
-                type="button"
-                onClick={() => setDetails(null)}
-                aria-label="Close details"
-                className="rounded-lg p-2 text-slate-500 hover:bg-slate-100"
-              >
-                <X size={20} />
-              </button>
-            </div>
-          </div>
-
-          {/* Two Column Layout */}
-
-          <div className="grid items-start gap-6 lg:grid-cols-2">
-            {/* Campaign Information */}
-
-            <div className="space-y-4">
-              <h4 className="text-base font-semibold text-slate-900">
-                Campaign Information
-              </h4>
-
-              <div className="divide-y divide-slate-100 rounded-xl border border-slate-200 bg-slate-50">
-                {/* Template */}
-
-                <div className="p-4">
-                  <p className="text-xs font-medium text-slate-500">
-                    Marketing Template
-                  </p>
-
-                  <p className="mt-1 break-all text-sm font-semibold text-slate-900">
-                    {details.campaign.template_name}
-                  </p>
-
-                  <p className="mt-1 text-xs text-slate-500">
-                    {details.campaign.template_language}
-                  </p>
-                </div>
-
-                {/* Total Recipients */}
-
-                <div className="p-4">
-                  <div className="flex items-center gap-2 text-sm text-slate-500">
-                    <Users size={18} className="text-emerald-700" />
-                    Total Recipients
-                  </div>
-
-                  <p className="mt-2 text-3xl font-bold text-slate-900">
-                    {details.recipients}
-                  </p>
-                </div>
-
-                {/* Contact Types */}
-
-                <div className="p-4">
-                  <p className="text-xs font-medium text-slate-500">
-                    Contact Types
-                  </p>
-
-                  <p className="mt-1 text-sm font-medium text-slate-900">
-                    {(details.campaign.audience_filters?.contact_types || [])
-                      .map((key) => types[key] || key)
-                      .join(", ") || "All Contact Types"}
-                  </p>
-                </div>
-
-                {/* Location */}
-
-                <div className="p-4">
-                  <p className="text-xs font-medium text-slate-500">Location</p>
-
-                  <p className="mt-1 text-sm font-medium text-slate-900">
-                    {details.campaign.audience_filters?.location ||
-                      "All Locations"}
-                  </p>
-                </div>
-
-                {/* Tags */}
-
-                <div className="p-4">
-                  <p className="text-xs font-medium text-slate-500">Tags</p>
-
-                  <p className="mt-1 text-sm font-medium text-slate-900">
-                    {details.campaign.audience_filters?.tag || "All Tags"}
-                  </p>
-                </div>
-
-                {/* Consent */}
-
-                <div className="p-4">
-                  <p className="mb-2 text-xs font-medium text-slate-500">
-                    Audience Eligibility
-                  </p>
-
-                  <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-100 px-3 py-1.5 text-xs font-semibold text-emerald-700">
-                    <ShieldCheck size={14} />
-                    Opted In Only
-                  </span>
-                </div>
-
-                {/* Created Date */}
-
-                <div className="p-4">
-                  <p className="text-xs font-medium text-slate-500">
-                    Created At
-                  </p>
-
-                  <p className="mt-1 text-sm font-medium text-slate-900">
-                    {new Date(details.campaign.created_at).toLocaleString()}
-                  </p>
-                </div>
-              </div>
-            </div>
-
-            {/* Compact Message Preview */}
-
-            <div className="space-y-3">
-              <h4 className="text-center text-base font-semibold text-slate-900">
-                Message Preview
-              </h4>
-
-              <div className="max-h-[650px] overflow-y-auto rounded-xl border border-slate-200 bg-slate-50 p-4">
-                <TemplatePreview
-                  template={details.campaign.template_snapshot}
-                />
-              </div>
-
-              <p className="text-center text-xs text-slate-500">
-                Preview of the selected WhatsApp template.
-              </p>
-            </div>
-          </div>
-        </section>
+        <CampaignDetails
+          key={details.campaign.id}
+          details={details}
+          onClose={() => setDetails(null)}
+          Preview={TemplatePreview}
+        />
       )}
 
       {/* Campaigns Table */}
