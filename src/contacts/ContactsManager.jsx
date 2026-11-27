@@ -853,7 +853,25 @@ export default function ContactsManager() {
                     {/* SOURCE */}
 
                     <td className="px-4 py-4">
-                      {sourceLabels[contact.source] || contact.source}
+                      {sourceLabels[c.source] || c.source}
+                    </td>
+
+                    <td className="px-4 py-4">
+                      <span
+                        className={`rounded-full px-2.5 py-1 text-xs font-medium ${
+                          c.contact_type === "interior_designer"
+                            ? "bg-purple-50 text-purple-700"
+                            : c.contact_type === "builder"
+                              ? "bg-amber-50 text-amber-700"
+                              : c.contact_type === "customer"
+                                ? "bg-blue-50 text-blue-700"
+                                : c.contact_type === "architect"
+                                  ? "bg-teal-50 text-teal-700"
+                                  : "bg-slate-100 text-slate-600"
+                        }`}
+                      >
+                        {typeLabels[c.contact_type] || "Unclassified"}
+                      </span>
                     </td>
 
                     <td className="px-4 py-4">
