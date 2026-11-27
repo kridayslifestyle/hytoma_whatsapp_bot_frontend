@@ -70,7 +70,7 @@ export default function ContactsManager() {
   const [showImport, setShowImport] = useState(false);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
-
+  const [selectedIds, setSelectedIds] = useState([]);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
 
@@ -195,6 +195,7 @@ export default function ContactsManager() {
       setNotice(editor.id === null ? "Contact added." : "Contact updated.");
 
       setEditor(null);
+      setSelectedIds([]);
       setPage(0);
       setRevision((v) => v + 1);
     } catch (err) {
@@ -238,7 +239,9 @@ export default function ContactsManager() {
           " invalid.",
       );
 
+      setSelectedIds([]);
       setPage(0);
+      setSelectedIds([]);
       setRevision((v) => v + 1);
     } catch (err) {
       setError(err.message);
@@ -252,6 +255,73 @@ export default function ContactsManager() {
   // =========================================================
 
   const contacts = data?.contacts || [];
+
+  const selectedContacts = contacts.filter((contact) =>
+    selectedIds.includes(contact.id),
+  );
+
+  const eligibleOptIn = selectedContacts.filter(
+    (contact) =>
+      contact.consent_status === "pending" &&
+      !/^120255501[0-9]{2}$/.test(contact.phone),
+  );
+
+  const eligibleOptOut = selectedContacts.filter(
+    (contact) => contact.consent_status !== "opted_out",
+  );
+
+  const selectionDisabled = busy || loading || !!editor || showImport;
+
+  async function changeConsent(action) {
+    if (selectionDisabled || error) return;
+
+    const ids = (action === "bulk-opt-in" ? eligibleOptIn : eligibleOptOut).map(
+      (contact) => contact.id,
+    );
+
+    if (!ids.length) return;
+
+    const confirmation =
+      action === "bulk-opt-in"
+        ? `Confirm that all ${ids.length} selected eligible contacts have already given HYTOMA marketing permission?`
+        : `Mark ${ids.length} selected contacts as opted out? They will be blocked from future marketing.`;
+
+    if (!window.confirm(confirmation)) {
+      return;
+    }
+
+    setBusy(true);
+    setError("");
+    setNotice("");
+
+    try {
+      const result = await apiRequest(
+        "/admin/contacts/consent/" + action,
+
+        {
+          method: "POST",
+
+          body: JSON.stringify({
+            contact_ids: ids,
+            confirmed: true,
+          }),
+        },
+      );
+
+      setNotice(
+        `Consent updated: ${result.updated} updated, ` +
+          `${result.skipped} skipped.`,
+      );
+
+      setSelectedIds([]);
+
+      setRevision((v) => v + 1);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setBusy(false);
+    }
+  }
   const stats = data?.stats || {};
   const total = data?.total || 0;
 
@@ -370,8 +440,10 @@ export default function ContactsManager() {
               `Import completed: ${result.added} added, ` +
                 `${result.duplicates} duplicates, ` +
                 `${result.invalid} invalid.`,
+                `${result.opted_in ?? 0} opted in.`
             );
 
+            setSelectedIds([]);
             setPage(0);
 
             setRevision((v) => v + 1);
@@ -510,6 +582,7 @@ export default function ContactsManager() {
             value={search}
             onChange={(e) => {
               setSearch(e.target.value);
+              setSelectedIds([]);
               setPage(0);
             }}
           />
@@ -521,6 +594,7 @@ export default function ContactsManager() {
           value={consent}
           onChange={(e) => {
             setConsent(e.target.value);
+            setSelectedIds([]);
             setPage(0);
           }}
         >
@@ -534,6 +608,30 @@ export default function ContactsManager() {
         </select>
       </div>
 
+      <div className="flex flex-wrap items-center gap-2 rounded-lg border border-slate-200 bg-white p-3">
+        <span className="mr-auto text-sm font-medium text-slate-600">
+          {selectedContacts.length} selected (current page)
+        </span>
+
+        <button
+          type="button"
+          className={primaryClass}
+          disabled={selectionDisabled || !!error || !eligibleOptIn.length}
+          onClick={() => changeConsent("bulk-opt-in")}
+        >
+          Mark Opted In ({eligibleOptIn.length})
+        </button>
+
+        <button
+          type="button"
+          className={buttonClass}
+          disabled={selectionDisabled || !!error || !eligibleOptOut.length}
+          onClick={() => changeConsent("bulk-opt-out")}
+        >
+          Opt Out ({eligibleOptOut.length})
+        </button>
+      </div>
+
       {/* CONTACTS TABLE */}
 
       <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
@@ -541,6 +639,27 @@ export default function ContactsManager() {
           <table className="w-full min-w-[760px] text-left text-sm">
             <thead className="bg-slate-50 text-xs text-slate-600">
               <tr>
+                <th className="px-4 py-3">
+                  <input
+                    type="checkbox"
+                    aria-label="Select all visible contacts"
+                    className="h-4 w-4 accent-emerald-600"
+                    disabled={selectionDisabled || !contacts.length || !!error}
+                    checked={
+                      contacts.length > 0 &&
+                      contacts.every((contact) =>
+                        selectedIds.includes(contact.id),
+                      )
+                    }
+                    onChange={(e) =>
+                      setSelectedIds(
+                        e.target.checked
+                          ? contacts.map((contact) => contact.id)
+                          : [],
+                      )
+                    }
+                  />
+                </th>
                 {[
                   "Contact",
                   "Location",
@@ -559,19 +678,35 @@ export default function ContactsManager() {
             <tbody className="divide-y divide-slate-100">
               {loading ? (
                 <tr>
-                  <td colSpan={6} className="p-8 text-center text-slate-500">
+                  <td colSpan={7} className="p-8 text-center text-slate-500">
                     Loading contacts...
                   </td>
                 </tr>
               ) : contacts.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="p-8 text-center text-slate-500">
+                  <td colSpan={7} className="p-8 text-center text-slate-500">
                     No contacts found.
                   </td>
                 </tr>
               ) : (
                 contacts.map((contact) => (
                   <tr key={contact.id} className="hover:bg-slate-50">
+                    <td className="px-4 py-4">
+                      <input
+                        type="checkbox"
+                        aria-label={`Select ${contact.name || contact.phone}`}
+                        className="h-4 w-4 accent-emerald-600"
+                        disabled={selectionDisabled || !!error}
+                        checked={selectedIds.includes(contact.id)}
+                        onChange={(e) =>
+                          setSelectedIds((previous) =>
+                            e.target.checked
+                              ? [...new Set([...previous, contact.id])]
+                              : previous.filter((id) => id !== contact.id),
+                          )
+                        }
+                      />
+                    </td>
                     {/* CONTACT */}
 
                     <td className="px-4 py-4">
@@ -657,7 +792,10 @@ export default function ContactsManager() {
               className={buttonClass}
               aria-label="Previous page"
               disabled={loading || page === 0}
-              onClick={() => setPage((p) => p - 1)}
+              onClick={() => {
+                setSelectedIds([]);
+                setPage((p) => p - 1);
+              }}
             >
               <ChevronLeft size={16} />
             </button>
@@ -670,7 +808,10 @@ export default function ContactsManager() {
               className={buttonClass}
               aria-label="Next page"
               disabled={loading || page + 1 >= pages}
-              onClick={() => setPage((p) => p + 1)}
+              onClick={() => {
+                setSelectedIds([]);
+                setPage((p) => p + 1);
+              }}
             >
               <ChevronRight size={16} />
             </button>
