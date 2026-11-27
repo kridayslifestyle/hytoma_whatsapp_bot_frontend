@@ -367,7 +367,22 @@ export default function CampaignDetails({
             onSubmit={save}
             className="space-y-4 rounded-xl border border-slate-200 p-4"
           >
-            <h4 className="font-semibold">Message Configuration</h4>
+            <div className="flex items-center justify-between gap-2">
+              <h4 className="font-semibold">Message Configuration</h4>
+
+              {campaign.status !== "draft" && (
+                <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-600">
+                  Read Only
+                </span>
+              )}
+            </div>
+
+            {campaign.status !== "draft" && (
+              <p className="rounded-lg bg-slate-50 p-3 text-sm text-slate-600">
+                This campaign is no longer a draft. You can view its saved
+                configuration, but editing is disabled.
+              </p>
+            )}
 
             {/* Loading */}
 
