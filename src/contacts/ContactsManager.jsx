@@ -24,6 +24,7 @@ const emptyForm = {
   name: "",
   location: "",
   tags: "",
+  contact_type: "unclassified",
 };
 
 const inputClass =
@@ -61,6 +62,15 @@ const sourceLabels = {
   csv: "CSV Import",
 };
 
+const typeLabels = {
+  unclassified: "Unclassified",
+  customer: "Customer",
+  interior_designer: "Interior Designer",
+  builder: "Builder",
+  architect: "Architect",
+  other: "Other",
+};
+
 export default function ContactsManager() {
   const [data, setData] = useState(null);
   const [search, setSearch] = useState("");
@@ -73,7 +83,9 @@ export default function ContactsManager() {
   const [selectedIds, setSelectedIds] = useState([]);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
-
+  const [contactType, setContactType] = useState("all");
+  const [tag, setTag] = useState("");
+  const [bulkType, setBulkType] = useState("");
   const [editor, setEditor] = useState(null);
   const [form, setForm] = useState(emptyForm);
 
@@ -87,6 +99,8 @@ export default function ContactsManager() {
     const params = new URLSearchParams({
       search,
       consent_status: consent,
+      contact_type: contactType,
+      tag,
       limit: String(PAGE_SIZE),
       offset: String(page * PAGE_SIZE),
     });
@@ -118,7 +132,7 @@ export default function ContactsManager() {
       active = false;
       clearTimeout(timer);
     };
-  }, [search, consent, page, revision]);
+  }, [search, consent, contactType, tag, page, revision]);
 
   // =========================================================
   // OPEN ADD / EDIT FORM
@@ -127,7 +141,6 @@ export default function ContactsManager() {
   function openEditor(contact = null) {
     setError("");
     setNotice("");
-
     setEditor(contact ? { id: contact.id } : { id: null });
 
     setForm(
@@ -136,6 +149,7 @@ export default function ContactsManager() {
             phone: contact.phone,
             name: contact.name || "",
             location: contact.location || "",
+            contact_type: contact.contact_type || "unclassified",
             tags: (contact.tags || []).join(", "),
           }
         : { ...emptyForm },
@@ -322,6 +336,44 @@ export default function ContactsManager() {
       setBusy(false);
     }
   }
+
+  async function changeType() {
+    if (selectionDisabled || error || !bulkType || !selectedContacts.length)
+      return;
+
+    const confirmed = window.confirm(
+      `Classify ${selectedContacts.length} selected contacts as ${typeLabels[bulkType]}?`,
+    );
+
+    if (!confirmed) return;
+
+    setBusy(true);
+    setError("");
+    setNotice("");
+
+    try {
+      const result = await apiRequest("/admin/contacts/bulk-type", {
+        method: "POST",
+        body: JSON.stringify({
+          contact_ids: selectedContacts.map((c) => c.id),
+          contact_type: bulkType,
+        }),
+      });
+
+      setNotice(
+        `Classification: ${result.updated} updated, ${result.skipped} skipped.`,
+      );
+
+      setSelectedIds([]);
+      setBulkType("");
+      setPage(0);
+      setRevision((v) => v + 1);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setBusy(false);
+    }
+  }
   const stats = data?.stats || {};
   const total = data?.total || 0;
 
@@ -440,7 +492,7 @@ export default function ContactsManager() {
               `Import completed: ${result.added} added, ` +
                 `${result.duplicates} duplicates, ` +
                 `${result.invalid} invalid.`,
-                `${result.opted_in ?? 0} opted in.`
+              `${result.opted_in ?? 0} opted in.`,
             );
 
             setSelectedIds([]);
@@ -517,6 +569,21 @@ export default function ContactsManager() {
               />
             </label>
 
+            <label className="space-y-1 text-sm font-medium text-slate-700">
+              Contact Type
+              <select
+                className={inputClass}
+                value={form.contact_type}
+                onChange={(e) => updateField("contact_type", e.target.value)}
+              >
+                {Object.entries(typeLabels).map(([key, label]) => (
+                  <option key={key} value={key}>
+                    {label}
+                  </option>
+                ))}
+              </select>
+            </label>
+
             {/* TAGS */}
 
             <label className="space-y-1 text-sm font-medium text-slate-700">
@@ -589,6 +656,37 @@ export default function ContactsManager() {
         </div>
 
         <select
+          aria-label="Filter contact type"
+          className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm"
+          value={contactType}
+          onChange={(e) => {
+            setContactType(e.target.value);
+            setSelectedIds([]);
+            setPage(0);
+          }}
+        >
+          <option value="all">All Contact Types</option>
+
+          {Object.entries(typeLabels).map(([key, label]) => (
+            <option key={key} value={key}>
+              {label}
+            </option>
+          ))}
+        </select>
+
+        <input
+          aria-label="Filter tags"
+          className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm"
+          placeholder="Exact tag..."
+          value={tag}
+          onChange={(e) => {
+            setTag(e.target.value);
+            setSelectedIds([]);
+            setPage(0);
+          }}
+        />
+
+        <select
           aria-label="Filter consent"
           className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm"
           value={consent}
@@ -620,6 +718,34 @@ export default function ContactsManager() {
           onClick={() => changeConsent("bulk-opt-in")}
         >
           Mark Opted In ({eligibleOptIn.length})
+        </button>
+
+        <select
+          className={buttonClass}
+          value={bulkType}
+          disabled={selectionDisabled || !selectedContacts.length}
+          onChange={(e) => setBulkType(e.target.value)}
+        >
+          <option value="">Change Contact Type</option>
+
+          {Object.entries(typeLabels).map(([key, label]) => (
+            <option key={key} value={key}>
+              {label}
+            </option>
+          ))}
+        </select>
+
+        <button
+          className={buttonClass}
+          disabled={
+            selectionDisabled ||
+            !!error ||
+            !bulkType ||
+            !selectedContacts.length
+          }
+          onClick={changeType}
+        >
+          Apply Type
         </button>
 
         <button
@@ -664,6 +790,7 @@ export default function ContactsManager() {
                   "Contact",
                   "Location",
                   "Source",
+                  "Contact Type",
                   "Tags",
                   "Consent Status",
                   "Action",
@@ -678,13 +805,13 @@ export default function ContactsManager() {
             <tbody className="divide-y divide-slate-100">
               {loading ? (
                 <tr>
-                  <td colSpan={7} className="p-8 text-center text-slate-500">
+                  <td colSpan={8} className="p-8 text-center text-slate-500">
                     Loading contacts...
                   </td>
                 </tr>
               ) : contacts.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="p-8 text-center text-slate-500">
+                  <td colSpan={8} className="p-8 text-center text-slate-500">
                     No contacts found.
                   </td>
                 </tr>
@@ -727,6 +854,24 @@ export default function ContactsManager() {
 
                     <td className="px-4 py-4">
                       {sourceLabels[contact.source] || contact.source}
+                    </td>
+
+                    <td className="px-4 py-4">
+                      <span
+                        className={`rounded-full px-2.5 py-1 text-xs font-medium ${
+                          c.contact_type === "interior_designer"
+                            ? "bg-purple-50 text-purple-700"
+                            : c.contact_type === "builder"
+                              ? "bg-amber-50 text-amber-700"
+                              : c.contact_type === "customer"
+                                ? "bg-blue-50 text-blue-700"
+                                : c.contact_type === "architect"
+                                  ? "bg-teal-50 text-teal-700"
+                                  : "bg-slate-100 text-slate-600"
+                        }`}
+                      >
+                        {typeLabels[c.contact_type] || "Unclassified"}
+                      </span>
                     </td>
 
                     {/* TAGS */}

@@ -28,9 +28,13 @@ export default function ImportContacts({ onClose, onImported }) {
   // =========================================================
 
   function downloadSample() {
-    const csv =
-      "phone,name,location,tags\n" +
-      '+91XXXXXXXXXX,Sample Contact,Hyderabad,"Villa,Full Home Automation"\n';
+    const csv = [
+      "phone,name,location,contact_type,tags",
+      '12025550101,Test Customer,Hyderabad,customer,"Villa,Full Home Automation"',
+      '12025550102,Test Designer,Hyderabad,interior_designer,"Residential Interiors"',
+      '12025550103,Test Builder,Vijayawada,builder,"Apartment Projects"',
+      '12025550104,Test Architect,Hyderabad,architect,"Commercial"',
+    ].join("\n");
 
     const url = URL.createObjectURL(
       new Blob([csv], {
@@ -39,10 +43,8 @@ export default function ImportContacts({ onClose, onImported }) {
     );
 
     const a = document.createElement("a");
-
     a.href = url;
     a.download = "contacts_sample.csv";
-
     a.click();
 
     URL.revokeObjectURL(url);
@@ -209,19 +211,28 @@ export default function ImportContacts({ onClose, onImported }) {
             ))}
           </div>
 
+          <td className="p-2 capitalize">
+            {(r.contact_type || "unclassified").replaceAll("_", " ")}
+          </td>
+
           {/* PREVIEW TABLE */}
 
           <div className="max-h-80 overflow-auto rounded-lg border border-slate-200">
             <table className="w-full text-left text-sm">
               <thead className="sticky top-0 bg-slate-50">
                 <tr>
-                  {["Row", "Phone", "Name", "Status", "Reason"].map(
-                    (heading) => (
-                      <th key={heading} className="p-2">
-                        {heading}
-                      </th>
-                    ),
-                  )}
+                  {[
+                    "Row",
+                    "Phone",
+                    "Name",
+                    "Contact Type",
+                    "Status",
+                    "Reason",
+                  ].map((heading) => (
+                    <th key={heading} className="p-2">
+                      {heading}
+                    </th>
+                  ))}
                 </tr>
               </thead>
 
