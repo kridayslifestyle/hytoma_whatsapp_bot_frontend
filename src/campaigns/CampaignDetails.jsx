@@ -12,6 +12,7 @@ import {
 import { apiRequest } from "../api";
 
 import CampaignTestSend from "./CampaignTestSend";
+import CampaignSending from "./CampaignSending";
 
 const types = {
   customer: "Customers",
@@ -28,7 +29,12 @@ const input =
 const primary =
   "inline-flex items-center gap-2 rounded-lg bg-emerald-700 px-4 py-2.5 text-sm font-semibold text-white hover:bg-emerald-800 disabled:opacity-50";
 
-export default function CampaignDetails({ details, onClose, Preview }) {
+export default function CampaignDetails({
+  details,
+  onClose,
+  Preview,
+  onStatusChange,
+}) {
   const campaign = details.campaign;
 
   const path = "/admin/campaigns/" + campaign.id;
@@ -46,6 +52,7 @@ export default function CampaignDetails({ details, onClose, Preview }) {
   const [busy, setBusy] = useState(false);
 
   const [testBusy, setTestBusy] = useState(false);
+  const [sendBusy, setSendBusy] = useState(false);
 
   const [loading, setLoading] = useState(true);
 
@@ -149,7 +156,8 @@ export default function CampaignDetails({ details, onClose, Preview }) {
   async function save(event) {
     event.preventDefault();
 
-    if (!content || busy || testBusy) return;
+    if (!content || busy || testBusy || sendBusy || campaign.status !== "draft")
+      return;
 
     setBusy(true);
 
@@ -287,7 +295,7 @@ export default function CampaignDetails({ details, onClose, Preview }) {
 
           <button
             type="button"
-            disabled={busy || testBusy}
+            disabled={busy || testBusy || sendBusy}
             onClick={onClose}
             aria-label="Close details"
             className="rounded-lg p-2 hover:bg-slate-100"
@@ -390,7 +398,12 @@ export default function CampaignDetails({ details, onClose, Preview }) {
             )}
 
             {content && (
-              <fieldset disabled={busy || testBusy} className="space-y-4">
+              <fieldset
+                disabled={
+                  busy || testBusy || sendBusy || campaign.status !== "draft"
+                }
+                className="space-y-4"
+              >
                 {/* Media Requirements */}
 
                 {content.media_required ? (
@@ -504,8 +517,18 @@ export default function CampaignDetails({ details, onClose, Preview }) {
           <CampaignTestSend
             campaignId={campaign.id}
             ready={testReady}
-            disabled={busy || loading}
+            disabled={
+              busy || loading || sendBusy || campaign.status !== "draft"
+            }
             onBusyChange={setTestBusy}
+          />
+
+          <CampaignSending
+            campaignId={campaign.id}
+            ready={testReady}
+            disabled={busy || loading || testBusy}
+            onStatusChange={onStatusChange}
+            onBusyChange={setSendBusy}
           />
         </div>
 

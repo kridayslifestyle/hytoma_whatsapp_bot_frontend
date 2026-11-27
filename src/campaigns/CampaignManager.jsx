@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 
 import {
   Plus,
@@ -347,6 +347,28 @@ export default function CampaignManager() {
     }
   }
 
+  const onCampaignStatusChange = useCallback((id, status) => {
+    setDetails((prev) => {
+      if (!prev || prev.campaign.id !== id || prev.campaign.status === status) {
+        return prev;
+      }
+
+      return {
+        ...prev,
+        campaign: {
+          ...prev.campaign,
+          status,
+        },
+      };
+    });
+
+    setCampaigns((prev) =>
+      prev.map((item) =>
+        item.id === id && item.status !== status ? { ...item, status } : item,
+      ),
+    );
+  }, []);
+
   const template = templates.find((item) => String(item.id) === templateId);
 
   // --------------------------------------------------
@@ -652,6 +674,7 @@ export default function CampaignManager() {
           details={details}
           onClose={() => setDetails(null)}
           Preview={TemplatePreview}
+          onStatusChange={onCampaignStatusChange}
         />
       )}
 
