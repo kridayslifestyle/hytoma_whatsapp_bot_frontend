@@ -80,31 +80,33 @@ function TemplatePreview({ template, mediaUrl, mediaFilename }) {
       }}
     >
       <div className="space-y-3 rounded-xl bg-white p-4 text-sm shadow-sm">
-        {/* Media Header */}
+        {/* Responsive Media Header */}
 
         {["IMAGE", "VIDEO", "DOCUMENT"].includes(header?.format) && (
-          <div className="flex h-[190px] w-full flex-col items-center justify-center gap-2 overflow-hidden rounded-lg border border-slate-200 bg-slate-100 text-slate-500">
+          <div className="w-full overflow-hidden rounded-lg">
             {mediaUrl && header.format === "IMAGE" ? (
               <img
                 src={mediaUrl}
                 alt="Campaign media"
-                className="h-full w-full rounded-lg object-contain"
+                className="block h-auto w-full rounded-lg"
               />
             ) : mediaUrl && header.format === "VIDEO" ? (
               <video
                 src={mediaUrl}
                 controls
-                className="h-full w-full rounded-lg object-contain"
+                preload="metadata"
+                className="block h-auto w-full rounded-lg"
               />
             ) : (
-              <>
-                <MediaIcon size={32} className="text-emerald-700" />
+              <div className="flex h-[190px] w-full flex-col items-center justify-center gap-3 rounded-lg border border-slate-200 bg-slate-100 text-slate-500">
+                <div className="rounded-full bg-white p-4 shadow-sm">
+                  <MediaIcon size={30} className="text-emerald-700" />
+                </div>
 
-                <span className="max-w-full break-all px-2 text-center">
-                  {mediaFilename ||
-                    header.format + " header (media configured later)"}
+                <span className="max-w-full break-all px-3 text-center text-xs font-medium">
+                  {mediaFilename || header.format + " header"}
                 </span>
-              </>
+              </div>
             )}
           </div>
         )}
