@@ -13,6 +13,8 @@ import { apiRequest } from "../api";
 
 import CampaignTestSend from "./CampaignTestSend";
 import CampaignSending from "./CampaignSending";
+import CampaignReport from "./CampaignReport";
+
 
 const types = {
   customer: "Customers",
@@ -565,7 +567,12 @@ export default function CampaignDetails({
             filename after reopening. No messages sent.
           </p>
         </div>
-      </div>
+            </div>
+
+      <CampaignReport
+        campaignId={campaign.id}
+      />
+
     </section>
   );
 }
