@@ -847,8 +847,6 @@ export default function ContactsManager() {
                   <tr key={contact.id} className="hover:bg-slate-50">
                     {/* Checkbox */}
 
-                    
-
                     {/* Name and phone */}
 
                     <td className="px-4 py-4">
