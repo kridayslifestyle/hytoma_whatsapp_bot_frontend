@@ -63,8 +63,6 @@ const sourceLabels = {
   csv: "CSV Import",
 };
 
-
-
 export default function ContactsManager() {
   const [data, setData] = useState(null);
   const [search, setSearch] = useState("");
@@ -90,14 +88,14 @@ export default function ContactsManager() {
   const [form, setForm] = useState(emptyForm);
 
   const filters = () =>
-  new URLSearchParams({
-    search,
-    consent_status: consent,
-    contact_type: contactType,
-    tag,
-    tag_mode: tagMode,
-    archived: String(archived),
-  });
+    new URLSearchParams({
+      search,
+      consent_status: consent,
+      contact_type: contactType,
+      tag,
+      tag_mode: tagMode,
+      archived: String(archived),
+    });
 
   // Load contacts
 
@@ -437,8 +435,8 @@ export default function ContactsManager() {
     }
   }
 
-  async function bulkChange(action) {
-    if (selectionDisabled || !selectedIds.length) {
+  async function bulkChange(action, ids = selectedIds) {
+    if (selectionDisabled || !ids.length) {
       return;
     }
 
@@ -456,7 +454,7 @@ export default function ContactsManager() {
     const confirmed = window.confirm(
       label +
         " for " +
-        selectedIds.length +
+        ids.length +
         " selected contacts?" +
         (action === "bulk-archive"
           ? "\n\nContacts will be excluded from future marketing. Campaign history will be preserved."
@@ -471,7 +469,7 @@ export default function ContactsManager() {
 
     try {
       const payload = {
-        contact_ids: selectedIds,
+        contact_ids: ids,
         confirmed: true,
       };
 
@@ -1022,6 +1020,23 @@ export default function ContactsManager() {
                   <tr key={contact.id} className="hover:bg-slate-50">
                     {/* Checkbox */}
 
+                    <td className="px-4 py-4">
+                      <input
+                        type="checkbox"
+                        aria-label={`Select ${c.name || c.phone}`}
+                        className="h-4 w-4 accent-emerald-600"
+                        disabled={selectionDisabled}
+                        checked={selectedIds.includes(c.id)}
+                        onChange={(e) =>
+                          setSelectedIds((prev) =>
+                            e.target.checked
+                              ? [...new Set([...prev, c.id])]
+                              : prev.filter((id) => id !== c.id),
+                          )
+                        }
+                      />
+                    </td>
+
                     {/* Name and phone */}
 
                     <td className="px-4 py-4">
@@ -1108,6 +1123,22 @@ export default function ContactsManager() {
                         }}
                       >
                         History
+                      </button>
+                      <button
+                        type="button"
+                        className={
+                          buttonClass +
+                          (archived ? " text-emerald-700" : " text-red-700")
+                        }
+                        disabled={selectionDisabled}
+                        onClick={() =>
+                          bulkChange(
+                            archived ? "bulk-restore" : "bulk-archive",
+                            [c.id],
+                          )
+                        }
+                      >
+                        {archived ? "Restore" : "Delete"}
                       </button>
                     </td>
                   </tr>
