@@ -1,10 +1,6 @@
 import { useEffect, useState } from "react";
 
-import {
-  BarChart3,
-  RefreshCw,
-  CheckCheck,
-} from "lucide-react";
+import { BarChart3, RefreshCw, CheckCheck, Download } from "lucide-react";
 
 import { apiRequest } from "../api";
 
@@ -36,12 +32,12 @@ const badgeColor = {
   unknown: "bg-amber-100 text-amber-800",
 };
 
-export default function CampaignReport({
-  campaignId,
-}) {
+export default function CampaignReport({ campaignId }) {
   const [report, setReport] = useState(null);
   const [status, setStatus] = useState("all");
   const [page, setPage] = useState(0);
+  const [exporting, setExporting] = useState(false);
+  const [exportError, setExportError] = useState("");
   const [revision, setRevision] = useState(0);
   const [error, setError] = useState("");
 
@@ -61,10 +57,7 @@ export default function CampaignReport({
         });
 
         const result = await apiRequest(
-          "/admin/campaigns/" +
-            campaignId +
-            "/report?" +
-            params
+          "/admin/campaigns/" + campaignId + "/report?" + params,
         );
 
         if (active) {
@@ -94,14 +87,59 @@ export default function CampaignReport({
 
   const pages = Math.max(
     1,
-    Math.ceil(
-      (report?.filtered_total || 0) / PAGE_SIZE
-    )
+    Math.ceil((report?.filtered_total || 0) / PAGE_SIZE),
   );
+
+  async function downloadReport() {
+    if (exporting) return;
+
+    setExporting(true);
+    setExportError("");
+
+    try {
+      const response = await fetch(
+        "/api/admin/campaigns/" + campaignId + "/report.csv",
+        {
+          credentials: "same-origin",
+          cache: "no-store",
+        },
+      );
+
+      if (
+        !response.ok ||
+        !response.headers.get("content-type")?.includes("text/csv")
+      ) {
+        throw new Error("Unable to download report.");
+      }
+
+      const blob = await response.blob();
+
+      const url = URL.createObjectURL(blob);
+
+      const link = document.createElement("a");
+
+      link.href = url;
+
+      link.download = "campaign-" + campaignId + "-report.csv";
+
+      document.body.appendChild(link);
+
+      link.click();
+
+      link.remove();
+
+      setTimeout(() => {
+        URL.revokeObjectURL(url);
+      }, 1000);
+    } catch (err) {
+      setExportError(err.message);
+    } finally {
+      setExporting(false);
+    }
+  }
 
   return (
     <section className="space-y-4 rounded-xl border border-slate-200 p-4">
-
       {/* Page heading */}
 
       <div className="flex flex-wrap items-center justify-between gap-2">
@@ -110,15 +148,37 @@ export default function CampaignReport({
           Campaign Performance
         </h4>
 
-        <button
-          type="button"
-          className={btn}
-          onClick={() => setRevision((n) => n + 1)}
-        >
-          <RefreshCw size={16} />
-          Refresh
-        </button>
+        <div className="flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            className={btn}
+            disabled={exporting}
+            onClick={downloadReport}
+          >
+            <Download size={16} />
+
+            {exporting ? "Downloading..." : "Export CSV"}
+          </button>
+
+          <button
+            type="button"
+            className={btn}
+            onClick={() => setRevision((n) => n + 1)}
+          >
+            <RefreshCw size={16} />
+            Refresh
+          </button>
+        </div>
       </div>
+
+      {exportError && (
+        <p
+          role="alert"
+          className="rounded-lg bg-red-50 p-3 text-sm text-red-700"
+        >
+          {exportError}
+        </p>
+      )}
 
       {/* Error and loading states */}
 
@@ -132,16 +192,14 @@ export default function CampaignReport({
       )}
 
       {!s && !error && (
-        <p className="text-sm text-slate-500">
-          Loading report...
-        </p>
+        <p className="text-sm text-slate-500">Loading report...</p>
       )}
 
       {s && (
         <>
           {/* Performance cards */}
 
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
             {[
               ["Recipients", s.total],
               ["Accepted", s.accepted],
@@ -149,14 +207,14 @@ export default function CampaignReport({
               ["Delivered", s.delivered],
               ["Read", s.read],
               ["Failed", s.failed],
+              ["Replied", s.replied ?? 0],
+              ["Total replies", s.replies ?? 0],
             ].map(([label, value]) => (
               <div
                 key={label}
                 className="rounded-lg border border-slate-200 bg-slate-50 p-3"
               >
-                <p className="text-xs text-slate-500">
-                  {label}
-                </p>
+                <p className="text-xs text-slate-500">{label}</p>
 
                 <p
                   className={
@@ -164,10 +222,10 @@ export default function CampaignReport({
                     (label === "Failed"
                       ? "text-red-700"
                       : label === "Delivered"
-                      ? "text-emerald-700"
-                      : label === "Read"
-                      ? "text-blue-700"
-                      : "text-slate-900")
+                        ? "text-emerald-700"
+                        : label === "Read"
+                          ? "text-blue-700"
+                          : "text-slate-900")
                   }
                 >
                   {value}
@@ -178,7 +236,7 @@ export default function CampaignReport({
 
           {/* Delivery and read rate */}
 
-          <div className="grid gap-3 sm:grid-cols-2">
+          <div className="grid gap-3 sm:grid-cols-3">
             {[
               [
                 "Delivery rate",
@@ -194,54 +252,42 @@ export default function CampaignReport({
                 "bg-blue-600",
                 s.delivered,
               ],
-            ].map(
-              ([
-                label,
-                value,
-                caption,
-                color,
-                denominator,
-              ]) => (
-                <div
-                  key={label}
-                  className="space-y-2 rounded-lg border border-slate-200 p-3"
-                >
-                  <div className="flex justify-between text-sm font-semibold">
-                    <span>{label}</span>
+              [
+                "Reply rate",
+                s.reply_rate ?? 0,
+                "Unique replied / Accepted",
+                "bg-teal-600",
+                s.accepted,
+              ],
+            ].map(([label, value, caption, color, denominator]) => (
+              <div
+                key={label}
+                className="space-y-2 rounded-lg border border-slate-200 p-3"
+              >
+                <div className="flex justify-between text-sm font-semibold">
+                  <span>{label}</span>
 
-                    <span>
-                      {denominator
-                        ? value + "%"
-                        : "—"}
-                    </span>
-                  </div>
-
-                  <div className="h-2 rounded-full bg-slate-100">
-                    <div
-                      className={
-                        "h-full rounded-full " +
-                        color
-                      }
-                      style={{
-                        width: value + "%",
-                      }}
-                    />
-                  </div>
-
-                  <p className="text-xs text-slate-500">
-                    {caption}
-                  </p>
+                  <span>{denominator ? value + "%" : "—"}</span>
                 </div>
-              )
-            )}
+
+                <div className="h-2 rounded-full bg-slate-100">
+                  <div
+                    className={"h-full rounded-full " + color}
+                    style={{
+                      width: value + "%",
+                    }}
+                  />
+                </div>
+
+                <p className="text-xs text-slate-500">{caption}</p>
+              </div>
+            ))}
           </div>
 
           <p className="text-xs text-slate-500">
-            Sent includes delivered and read.
-            Delivered includes read. Failed means
-            Meta reported a delivery failure;
-            rejected and skipped are separate
-            queue outcomes.
+            Sent includes delivered and read. Delivered includes read. Failed
+            means Meta reported a delivery failure; rejected and skipped are
+            separate queue outcomes.
           </p>
         </>
       )}
@@ -249,9 +295,7 @@ export default function CampaignReport({
       {/* Contact report header and filter */}
 
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <h5 className="font-semibold">
-          Individual Recipients
-        </h5>
+        <h5 className="font-semibold">Individual Recipients</h5>
 
         <select
           aria-label="Filter recipient status"
@@ -266,8 +310,7 @@ export default function CampaignReport({
             <option key={value} value={value}>
               {value === "all"
                 ? "All statuses"
-                : value.charAt(0).toUpperCase() +
-                  value.slice(1)}
+                : value.charAt(0).toUpperCase() + value.slice(1)}
             </option>
           ))}
         </select>
@@ -284,14 +327,12 @@ export default function CampaignReport({
                   {[
                     "Contact",
                     "Status",
+                    "Replies",
                     "Attempted At",
                     "Status Updated",
                     "Error",
                   ].map((header) => (
-                    <th
-                      key={header}
-                      className="p-3"
-                    >
+                    <th key={header} className="p-3">
                       {header}
                     </th>
                   ))}
@@ -301,11 +342,19 @@ export default function CampaignReport({
               <tbody>
                 {!report.recipients.length && (
                   <tr>
-                    <td
-                      colSpan={5}
-                      className="p-5 text-center text-slate-500"
-                    >
+                    <td colSpan={6} className="p-5 text-center text-slate-500">
                       No matching recipients.
+                    </td>
+
+                    <td className="p-3">
+                      {row.reply_count > 0 ? (
+                        <span className="inline-flex rounded-full bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-700">
+                          {row.reply_count}{" "}
+                          {row.reply_count === 1 ? "reply" : "replies"}
+                        </span>
+                      ) : (
+                        <span className="text-sm text-slate-500">0</span>
+                      )}
                     </td>
                   </tr>
                 )}
@@ -317,13 +366,10 @@ export default function CampaignReport({
                   >
                     <td className="p-3">
                       <p className="font-medium">
-                        {row.name ||
-                          "Unnamed contact"}
+                        {row.name || "Unnamed contact"}
                       </p>
 
-                      <p className="text-xs text-slate-500">
-                        +{row.phone}
-                      </p>
+                      <p className="text-xs text-slate-500">+{row.phone}</p>
                     </td>
 
                     <td className="p-3">
@@ -334,10 +380,7 @@ export default function CampaignReport({
                             "bg-slate-100 text-slate-700")
                         }
                       >
-                        {[
-                          "delivered",
-                          "read",
-                        ].includes(row.status) && (
+                        {["delivered", "read"].includes(row.status) && (
                           <CheckCheck size={14} />
                         )}
 
@@ -347,27 +390,19 @@ export default function CampaignReport({
 
                     <td className="p-3 whitespace-nowrap">
                       {row.attempted_at
-                        ? new Date(
-                            row.attempted_at
-                          ).toLocaleString()
+                        ? new Date(row.attempted_at).toLocaleString()
                         : "—"}
                     </td>
 
                     <td className="p-3 whitespace-nowrap">
                       {row.status_timestamp
-                        ? new Date(
-                            row.status_timestamp
-                          ).toLocaleString()
+                        ? new Date(row.status_timestamp).toLocaleString()
                         : "—"}
                     </td>
 
                     <td className="p-3 text-xs text-slate-600 break-words">
-                      {[
-                        row.error_code,
-                        row.error,
-                      ]
-                        .filter(Boolean)
-                        .join(": ") || "—"}
+                      {[row.error_code, row.error].filter(Boolean).join(": ") ||
+                        "—"}
                     </td>
                   </tr>
                 ))}
@@ -410,9 +445,8 @@ export default function CampaignReport({
       {/* Auto refresh info */}
 
       <p className="text-xs text-slate-500">
-        Updates every 5 seconds while open.
-        Delivery and read confirmations depend
-        on Meta webhook events.
+        Updates every 5 seconds while open. Delivery and read confirmations
+        depend on Meta webhook events.
       </p>
     </section>
   );
