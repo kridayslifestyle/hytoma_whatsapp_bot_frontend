@@ -6,6 +6,9 @@ import {
   Users,
   FileText,
   ShieldCheck,
+  Pencil,
+  Copy,
+  Trash2,
   Eye,
   X,
   Image,
@@ -174,6 +177,8 @@ export default function CampaignManager() {
     tag: "",
   });
 
+  const [editingId, setEditingId] = useState(null);
+
   const [preview, setPreview] = useState(null);
   const [details, setDetails] = useState(null);
 
@@ -223,7 +228,7 @@ export default function CampaignManager() {
   // Open Create Campaign Form
   // --------------------------------------------------
 
-  async function openForm() {
+  async function openForm(sourceId = null, duplicate = false) {
     setBusy(true);
     setError("");
     setNotice("");
@@ -234,14 +239,33 @@ export default function CampaignManager() {
 
       setTemplates(result.templates || []);
 
-      setName("");
-      setTemplateId("");
+      const source = sourceId
+        ? (await apiRequest("/admin/campaigns/" + sourceId)).campaign
+        : null;
 
-      setAudience({
-        contact_types: [],
-        location: "",
-        tag: "",
-      });
+      if (source && !duplicate && source.status !== "draft") {
+        throw new Error("Only drafts can be edited.");
+      }
+
+      setEditingId(source && !duplicate ? source.id : null);
+
+      setName(
+        source
+          ? duplicate
+            ? (source.name + " (Copy)").slice(0, 150)
+            : source.name
+          : "",
+      );
+
+      setTemplateId(source ? String(source.template_id) : "");
+
+      setAudience(
+        source?.audience_filters || {
+          contact_types: [],
+          location: "",
+          tag: "",
+        },
+      );
 
       setPreview(null);
       setFormOpen(true);
@@ -290,56 +314,96 @@ export default function CampaignManager() {
   // --------------------------------------------------
 
   async function saveDraft(event) {
-  event.preventDefault();
+    event.preventDefault();
 
-  if (
-    busy ||
-    !name.trim() ||
-    !templateId ||
-    !preview?.eligible ||
-    preview.over_limit
-  ) {
-    return;
-  }
+    if (
+      busy ||
+      !name.trim() ||
+      !templateId ||
+      !preview?.eligible ||
+      preview.over_limit
+    ) {
+      return;
+    }
 
-  setBusy(true);
-  setError("");
-  setNotice("");
-
-  try {
-    const result = await post("/admin/campaigns", {
-      name: name.trim(),
-      template_id: templateId,
-      audience,
-    });
-
-    setNotice(
-      `Draft saved: ${result.recipients} recipients. No messages sent.`
-    );
-
-    setFormOpen(false);
-    setPage(0);
-    setRevision((v) => v + 1);
+    setBusy(true);
+    setError("");
+    setNotice("");
 
     try {
-      const savedDetails = await apiRequest(
-        "/admin/campaigns/" + result.campaign.id
+      const path = editingId
+        ? "/admin/campaigns/" + editingId
+        : "/admin/campaigns";
+
+      const result = await apiRequest(path, {
+        method: editingId ? "PATCH" : "POST",
+        body: JSON.stringify({
+          name: name.trim(),
+          template_id: templateId,
+          audience,
+        }),
+      });
+
+      setNotice(
+        `${editingId ? "Draft updated" : "Draft saved"}: ${
+          result.recipients
+        } recipients. No messages sent.` +
+          (result.configuration_reset
+            ? " Configure the new template's media and variables."
+            : ""),
       );
 
-      setDetails(savedDetails);
+      setFormOpen(false);
+      setPage(0);
+      setRevision((v) => v + 1);
+      setEditingId(null);
+
+      try {
+        const savedDetails = await apiRequest(
+          "/admin/campaigns/" + result.campaign.id,
+        );
+
+        setDetails(savedDetails);
+      } catch (err) {
+        setError("Draft saved. Open it from the campaign list: " + err.message);
+      }
     } catch (err) {
-      setError(
-        "Draft saved. Open it from the campaign list: " +
-          err.message
-      );
+      setError(err.message);
+      setPreview(null);
+    } finally {
+      setBusy(false);
     }
-  } catch (err) {
-    setError(err.message);
-    setPreview(null);
-  } finally {
-    setBusy(false);
   }
-}
+
+  async function deleteDraft(id) {
+    if (busy) return;
+
+    const confirmed = window.confirm(
+      "Permanently delete this unsent draft? " +
+        "This action cannot be undone.",
+    );
+
+    if (!confirmed) return;
+
+    setBusy(true);
+    setError("");
+    setNotice("");
+
+    try {
+      await apiRequest("/admin/campaigns/" + id, {
+        method: "DELETE",
+      });
+
+      setDetails((prev) => (prev?.campaign.id === id ? null : prev));
+
+      setNotice("Draft deleted successfully.");
+      setRevision((v) => v + 1);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setBusy(false);
+    }
+  }
 
   // --------------------------------------------------
   // Campaign Details
@@ -420,7 +484,7 @@ export default function CampaignManager() {
           <button
             className={primary}
             disabled={busy || formOpen}
-            onClick={openForm}
+            onClick={() => openForm()}
           >
             <Plus size={18} />
             Create Campaign
@@ -460,7 +524,9 @@ export default function CampaignManager() {
       {formOpen && (
         <form className={panel + " space-y-5"} onSubmit={saveDraft}>
           <div className="flex justify-between">
-            <h3 className="text-lg font-semibold">Create Campaign</h3>
+            <h3 className="text-lg font-semibold">
+              {editingId ? "Edit Campaign" : "Create Campaign"}
+            </h3>
 
             <button
               type="button"
@@ -748,14 +814,47 @@ export default function CampaignManager() {
                     </td>
 
                     <td className="p-3">
-                      <button
-                        className={btn}
-                        disabled={busy || formOpen}
-                        onClick={() => viewDetails(item.id)}
-                      >
-                        <Eye size={16} />
-                        View
-                      </button>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <button
+                          className={btn}
+                          disabled={busy || formOpen}
+                          onClick={() => viewDetails(item.id)}
+                        >
+                          <Eye size={16} />
+                          View
+                        </button>
+
+                        {item.status === "draft" && (
+                          <button
+                            className={btn}
+                            disabled={busy || formOpen}
+                            onClick={() => openForm(item.id)}
+                          >
+                            <Pencil size={16} />
+                            Edit
+                          </button>
+                        )}
+
+                        <button
+                          className={btn}
+                          disabled={busy || formOpen}
+                          onClick={() => openForm(item.id, true)}
+                        >
+                          <Copy size={16} />
+                          Duplicate
+                        </button>
+
+                        {item.status === "draft" && (
+                          <button
+                            className={btn + " text-red-700"}
+                            disabled={busy || formOpen}
+                            onClick={() => deleteDraft(item.id)}
+                          >
+                            <Trash2 size={16} />
+                            Delete
+                          </button>
+                        )}
+                      </div>
                     </td>
                   </tr>
                 ))
