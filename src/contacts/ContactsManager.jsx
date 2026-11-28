@@ -63,15 +63,7 @@ const sourceLabels = {
   csv: "CSV Import",
 };
 
-const filters = () =>
-  new URLSearchParams({
-    search,
-    consent_status: consent,
-    contact_type: contactType,
-    tag,
-    tag_mode: tagMode,
-    archived: String(archived),
-  });
+
 
 export default function ContactsManager() {
   const [data, setData] = useState(null);
@@ -96,6 +88,16 @@ export default function ContactsManager() {
   const [showImport, setShowImport] = useState(false);
   const [editor, setEditor] = useState(null);
   const [form, setForm] = useState(emptyForm);
+
+  const filters = () =>
+  new URLSearchParams({
+    search,
+    consent_status: consent,
+    contact_type: contactType,
+    tag,
+    tag_mode: tagMode,
+    archived: String(archived),
+  });
 
   // Load contacts
 
