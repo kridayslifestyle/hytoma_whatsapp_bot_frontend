@@ -1,11 +1,6 @@
 import { useEffect, useState, useRef } from "react";
 
-import {
-  Send,
-  Paperclip,
-  Clock,
-  FileText,
-} from "lucide-react";
+import { Send, Paperclip, Clock, FileText } from "lucide-react";
 
 import { apiRequest } from "../api";
 
@@ -35,11 +30,7 @@ const quickReplies = [
 ];
 
 export function ManualMedia({ message }) {
-  const src =
-    "/api" +
-    base +
-    "/manual-media/" +
-    message.manual_id;
+  const src = "/api" + base + "/manual-media/" + message.manual_id;
 
   if (message.mime === "application/pdf") {
     return (
@@ -75,10 +66,7 @@ export function ManualMedia({ message }) {
   );
 }
 
-export default function ReplyComposer({
-  chat,
-  onSent,
-}) {
+export default function ReplyComposer({ chat, onSent }) {
   const [now, setNow] = useState(Date.now());
   const [mode, setMode] = useState("text");
   const [body, setBody] = useState("");
@@ -92,15 +80,13 @@ export default function ReplyComposer({
 
   const busyRef = useRef(false);
   const inputRef = useRef(null);
+  const pendingRequest = useRef(null);
 
   const expires = chat.window_expires_at
     ? new Date(chat.window_expires_at).getTime()
     : 0;
 
-  const seconds = Math.max(
-    0,
-    Math.floor((expires - now) / 1000)
-  );
+  const seconds = Math.max(0, Math.floor((expires - now) / 1000));
 
   const open = seconds > 60;
 
@@ -109,22 +95,15 @@ export default function ReplyComposer({
     chat.lead_status === "opted_out";
 
   const unresolved = chat.messages.some(
-    (m) =>
-      m.manual_id &&
-      ["unknown", "sending"].includes(m.status)
+    (m) => m.manual_id && ["unknown", "sending"].includes(m.status),
   );
 
-  const template = templates.find(
-    (t) => String(t.id) === templateId
-  );
+  const template = templates.find((t) => String(t.id) === templateId);
 
   // UPDATE WINDOW TIMER
 
   useEffect(() => {
-    const id = setInterval(
-      () => setNow(Date.now()),
-      1000
-    );
+    const id = setInterval(() => setNow(Date.now()), 1000);
 
     return () => clearInterval(id);
   }, []);
@@ -165,15 +144,46 @@ export default function ReplyComposer({
     }
   }
 
+  function clearComposer() {
+    setBody("");
+    resetFile();
+    setValues({});
+    setTemplateId("");
+    setMode(open ? "text" : "template");
+  }
+
+  useEffect(() => {
+    if (!uncertain || busy || !pendingRequest.current) return;
+
+    const message = chat.messages.find(
+      (m) => m.manual_id === pendingRequest.current,
+    );
+
+    if (
+      !message ||
+      !["accepted", "sent", "delivered", "read", "failed"].includes(
+        message.status,
+      )
+    ) {
+      return;
+    }
+
+    pendingRequest.current = null;
+
+    clearComposer();
+    setUncertain(false);
+
+    setError(
+      message.status === "failed"
+        ? "Message failed. Check its delivery status."
+        : "",
+    );
+  }, [chat.messages, uncertain, busy, open]);
+
   // SEND MESSAGE
 
   async function send() {
-    if (
-      busyRef.current ||
-      blocked ||
-      uncertain ||
-      unresolved
-    ) {
+    if (busyRef.current || blocked || uncertain || unresolved) {
       return;
     }
 
@@ -181,45 +191,31 @@ export default function ReplyComposer({
       return;
     }
 
-    if (
-      mode === "text" &&
-      !body.trim() &&
-      !file
-    ) {
+    if (mode === "text" && !body.trim() && !file) {
       return;
     }
 
     if (
       mode === "template" &&
-      (
-        !template ||
-        template.fields.some(
-          (k) => !values[k]?.trim()
-        ) ||
-        Boolean(template.media_required) !==
-          Boolean(file)
-      )
+      (!template ||
+        template.fields.some((k) => !values[k]?.trim()) ||
+        Boolean(template.media_required) !== Boolean(file))
     ) {
       return;
     }
 
     if (
       file &&
-      ![
-        "image/jpeg",
-        "image/png",
-        "video/mp4",
-        "application/pdf",
-      ].includes(file.type)
+      !["image/jpeg", "image/png", "video/mp4", "application/pdf"].includes(
+        file.type,
+      )
     ) {
       setError("Choose JPG, PNG, MP4 or PDF.");
       return;
     }
 
     if (file && file.size > 4 * 1024 * 1024) {
-      setError(
-        "Attachment must be 4 MB or smaller."
-      );
+      setError("Attachment must be 4 MB or smaller.");
 
       return;
     }
@@ -227,9 +223,7 @@ export default function ReplyComposer({
     if (
       mode === "template" &&
       !window.confirm(
-        "Send this approved template to " +
-          chat.contact.phone +
-          "?"
+        "Send this approved template to " + chat.contact.phone + "?",
       )
     ) {
       return;
@@ -242,10 +236,11 @@ export default function ReplyComposer({
 
     const data = new FormData();
 
-    data.append(
-      "request_id",
-      crypto.randomUUID()
-    );
+    const requestId = crypto.randomUUID();
+
+    pendingRequest.current = requestId;
+
+    data.append("request_id", requestId);
 
     const kinds = {
       "image/jpeg": "image",
@@ -256,29 +251,14 @@ export default function ReplyComposer({
 
     data.append(
       "kind",
-      mode === "template"
-        ? "template"
-        : file
-          ? kinds[file.type]
-          : "text"
+      mode === "template" ? "template" : file ? kinds[file.type] : "text",
     );
 
-    data.append(
-      "body",
-      mode === "template" ? "" : body
-    );
+    data.append("body", mode === "template" ? "" : body);
 
-    data.append(
-      "template_id",
-      mode === "template" ? templateId : ""
-    );
+    data.append("template_id", mode === "template" ? templateId : "");
 
-    data.append(
-      "values",
-      JSON.stringify(
-        mode === "template" ? values : {}
-      )
-    );
+    data.append("values", JSON.stringify(mode === "template" ? values : {}));
 
     if (file) {
       data.append("file", file);
@@ -286,42 +266,34 @@ export default function ReplyComposer({
 
     try {
       const result = await apiRequest(
-        base +
-          "/conversations/" +
-          chat.contact.id +
-          "/send",
+        base + "/conversations/" + chat.contact.id + "/send",
         {
           method: "POST",
           body: data,
-        }
+        },
       );
 
       if (result.status === "failed") {
-        throw new Error(
-          "Meta rejected the message."
-        );
+        throw new Error("Meta rejected the message.");
       }
 
       if (result.status !== "accepted") {
         setUncertain(true);
 
         throw new Error(
-          "Send outcome uncertain. Check delivery before sending again."
+          "Send outcome uncertain. Check delivery before sending again.",
         );
       }
 
-      setBody("");
-      resetFile();
-      setValues({});
+      pendingRequest.current = null;
+
+      clearComposer();
 
       onSent();
     } catch (e) {
       setError(e.message);
 
-      if (
-        /uncertain|Failed to fetch|Request failed|network/i
-          .test(e.message)
-      ) {
+      if (/uncertain|Failed to fetch|Request failed|network/i.test(e.message)) {
         setUncertain(true);
       }
 
@@ -334,17 +306,12 @@ export default function ReplyComposer({
 
   return (
     <div className="space-y-2">
-
       {/* CUSTOMER SERVICE WINDOW */}
 
       <div
         className={
           "flex items-center gap-2 text-xs font-medium " +
-          (
-            open
-              ? "text-emerald-700"
-              : "text-amber-800"
-          )
+          (open ? "text-emerald-700" : "text-amber-800")
         }
       >
         <Clock size={15} />
@@ -355,20 +322,16 @@ export default function ReplyComposer({
             "h " +
             Math.floor((seconds % 3600) / 60) +
             "m remaining"
-
           : "Reply window closed · approved template required"}
       </div>
 
       {blocked ? (
-        <p className="text-sm text-red-700">
-          This contact has opted out.
-        </p>
+        <p className="text-sm text-red-700">This contact has opted out.</p>
       ) : (
         <>
           {/* ACTION BUTTONS */}
 
           <div className="flex flex-wrap gap-2">
-
             <button
               className={button}
               disabled={!open || busy}
@@ -396,24 +359,15 @@ export default function ReplyComposer({
                 className={button}
                 disabled={busy}
                 value=""
-                onChange={(e) =>
-                  setBody(e.target.value)
-                }
+                onChange={(e) => setBody(e.target.value)}
               >
-                <option value="">
-                  Quick replies
-                </option>
+                <option value="">Quick replies</option>
 
-                {quickReplies.map(
-                  ([label, text]) => (
-                    <option
-                      key={label}
-                      value={text}
-                    >
-                      {label}
-                    </option>
-                  )
-                )}
+                {quickReplies.map(([label, text]) => (
+                  <option key={label} value={text}>
+                    {label}
+                  </option>
+                ))}
               </select>
             )}
           </div>
@@ -422,7 +376,6 @@ export default function ReplyComposer({
 
           {mode === "template" ? (
             <div className="max-h-40 space-y-2 overflow-y-auto">
-
               <select
                 className={button + " w-full"}
                 value={templateId}
@@ -433,15 +386,10 @@ export default function ReplyComposer({
                   resetFile();
                 }}
               >
-                <option value="">
-                  Select approved template
-                </option>
+                <option value="">Select approved template</option>
 
                 {templates.map((t) => (
-                  <option
-                    key={t.id}
-                    value={t.id}
-                  >
+                  <option key={t.id} value={t.id}>
                     {t.name} ({t.language})
                   </option>
                 ))}
@@ -450,24 +398,15 @@ export default function ReplyComposer({
               {template && (
                 <>
                   <p className="whitespace-pre-wrap text-xs text-slate-600">
-                    {
-                      template.components?.find(
-                        (p) => p.type === "BODY"
-                      )?.text
-                    }
+                    {template.components?.find((p) => p.type === "BODY")?.text}
                   </p>
 
                   {template.fields.map((k) => (
-                    <label
-                      key={k}
-                      className="block text-xs"
-                    >
+                    <label key={k} className="block text-xs">
                       {k}
 
                       <input
-                        className={
-                          button + " w-full"
-                        }
+                        className={button + " w-full"}
                         value={values[k] || ""}
                         disabled={busy}
                         onChange={(e) =>
@@ -483,7 +422,6 @@ export default function ReplyComposer({
               )}
             </div>
           ) : (
-
             /* TEXT MESSAGE MODE */
 
             <textarea
@@ -491,9 +429,7 @@ export default function ReplyComposer({
               rows={2}
               maxLength={file ? 1024 : 4096}
               value={body}
-              onChange={(e) =>
-                setBody(e.target.value)
-              }
+              onChange={(e) => setBody(e.target.value)}
               disabled={busy || !open}
               placeholder="Type a message..."
             />
@@ -502,19 +438,12 @@ export default function ReplyComposer({
           {/* ATTACHMENT AND SEND */}
 
           <div className="flex flex-wrap items-center gap-2">
-
-            {(mode === "text" ||
-              template?.media_required) && (
+            {(mode === "text" || template?.media_required) && (
               <label
-                className={
-                  button +
-                  " flex cursor-pointer items-center gap-2"
-                }
+                className={button + " flex cursor-pointer items-center gap-2"}
               >
                 <Paperclip size={16} />
-
                 Attach
-
                 <input
                   ref={inputRef}
                   type="file"
@@ -522,33 +451,21 @@ export default function ReplyComposer({
                   disabled={busy}
                   accept={
                     mode === "template"
-                      ? template.media_required ===
-                        "IMAGE"
+                      ? template.media_required === "IMAGE"
                         ? "image/jpeg,image/png"
                         : "video/mp4"
-
                       : "image/jpeg,image/png,video/mp4,application/pdf"
                   }
-                  onChange={(e) =>
-                    setFile(
-                      e.target.files?.[0] || null
-                    )
-                  }
+                  onChange={(e) => setFile(e.target.files?.[0] || null)}
                 />
               </label>
             )}
 
             {file && (
               <>
-                <span className="max-w-40 truncate text-xs">
-                  {file.name}
-                </span>
+                <span className="max-w-40 truncate text-xs">{file.name}</span>
 
-                <button
-                  className={button}
-                  disabled={busy}
-                  onClick={resetFile}
-                >
+                <button className={button} disabled={busy} onClick={resetFile}>
                   Remove
                 </button>
               </>
@@ -560,12 +477,7 @@ export default function ReplyComposer({
                 busy ||
                 uncertain ||
                 unresolved ||
-                (
-                  mode === "text"
-                    ? !open ||
-                      (!body.trim() && !file)
-                    : !template
-                )
+                (mode === "text" ? !open || (!body.trim() && !file) : !template)
               }
               onClick={send}
             >
@@ -578,24 +490,17 @@ export default function ReplyComposer({
       )}
 
       {(uncertain || unresolved) && (
-        <p
-          role="alert"
-          className="text-xs text-amber-800"
-        >
-          Previous send is uncertain or pending.
-          Check delivery before sending again.
+        <p role="alert" className="text-xs text-amber-800">
+          Previous send is uncertain or pending. Check delivery before sending
+          again.
         </p>
       )}
 
       {error && (
-        <p
-          role="alert"
-          className="text-xs text-red-700"
-        >
+        <p role="alert" className="text-xs text-red-700">
           {error}
         </p>
       )}
-
     </div>
   );
 }
