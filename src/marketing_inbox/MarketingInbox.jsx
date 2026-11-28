@@ -12,11 +12,12 @@ import {
 
 import { apiRequest } from "../api";
 
+import CampaignMedia from "./CampaignMedia";
+
 const base = "/admin/marketing-inbox";
 
 const btn =
   "rounded-lg border border-slate-200 px-3 py-2 text-xs font-semibold disabled:opacity-50";
-
 
 // Render saved campaign template
 
@@ -24,14 +25,10 @@ function TemplateMessage({ message }) {
   const fill = (text, prefix) =>
     (text || "").replace(
       /\{\{\s*(\d+)\s*\}\}/g,
-      (match, n) =>
-        message.template_values?.[
-          prefix + ":" + n
-        ] || match
+      (match, n) => message.template_values?.[prefix + ":" + n] || match,
     );
 
-  const parts =
-    message.template_snapshot?.components || [];
+  const parts = message.template_snapshot?.components || [];
 
   return (
     <>
@@ -40,24 +37,17 @@ function TemplateMessage({ message }) {
       </p>
 
       {parts.map((part, i) => {
-
         if (part.type === "HEADER") {
           return part.format === "TEXT" ? (
             <p key={i} className="font-bold">
               {fill(part.text, "header")}
             </p>
           ) : (
-            <div
-              key={i}
-              className="mb-3 flex min-h-28 flex-col items-center justify-center gap-2 rounded-lg bg-slate-100 p-4 text-center text-xs text-slate-500"
-            >
-              <Image size={26} />
-
-              {message.media_filename ||
-                part.format + " header"}
-
-              <span>Saved media reference</span>
-            </div>
+            <CampaignMedia
+              key={message.id + ":" + i}
+              message={message}
+              format={part.format}
+            />
           );
         }
 
@@ -74,10 +64,7 @@ function TemplateMessage({ message }) {
 
         if (part.type === "FOOTER") {
           return (
-            <p
-              key={i}
-              className="mt-3 text-xs text-slate-500"
-            >
+            <p key={i} className="mt-3 text-xs text-slate-500">
               {part.text}
             </p>
           );
@@ -115,11 +102,9 @@ function TemplateMessage({ message }) {
   );
 }
 
-
 // Main Marketing Inbox
 
 export default function MarketingInbox() {
-
   const [search, setSearch] = useState("");
 
   const [filter, setFilter] = useState("all");
@@ -142,7 +127,6 @@ export default function MarketingInbox() {
 
   const [readBusy, setReadBusy] = useState(false);
 
-
   // Load conversation list
 
   useEffect(() => {
@@ -158,21 +142,17 @@ export default function MarketingInbox() {
           limit: 50,
         });
 
-        const result = await apiRequest(
-          base + "/conversations?" + params
-        );
+        const result = await apiRequest(base + "/conversations?" + params);
 
         if (active) {
           setList(result.conversations);
           setMore(result.has_more);
           setError("");
         }
-
       } catch (e) {
         if (active) {
           setError(e.message);
         }
-
       } finally {
         if (active) {
           timer = setTimeout(load, 5000);
@@ -186,14 +166,11 @@ export default function MarketingInbox() {
       active = false;
       clearTimeout(timer);
     };
-
   }, [search, filter, page, revision]);
-
 
   // Load selected conversation
 
   useEffect(() => {
-
     setChat(null);
     setChatError("");
 
@@ -204,20 +181,16 @@ export default function MarketingInbox() {
 
     async function load() {
       try {
-        const result = await apiRequest(
-          base + "/conversations/" + selected
-        );
+        const result = await apiRequest(base + "/conversations/" + selected);
 
         if (active) {
           setChat(result);
           setChatError("");
         }
-
       } catch (e) {
         if (active) {
           setChatError(e.message);
         }
-
       } finally {
         if (active) {
           timer = setTimeout(load, 5000);
@@ -231,109 +204,76 @@ export default function MarketingInbox() {
       active = false;
       clearTimeout(timer);
     };
-
   }, [selected, revision]);
-
 
   // Mark conversation as read
 
   async function markRead() {
-
     if (!selected || readBusy) return;
 
     setReadBusy(true);
 
     try {
       await apiRequest(
-        base +
-          "/conversations/" +
-          selected +
-          "/read",
+        base + "/conversations/" + selected + "/read",
 
         {
           method: "POST",
-        }
+        },
       );
 
       setRevision((n) => n + 1);
-
     } catch (e) {
       setChatError(e.message);
-
     } finally {
       setReadBusy(false);
     }
   }
 
-
   return (
     <div className="space-y-4">
-
       {/* Page title */}
 
       <div>
-        <h2 className="text-2xl font-bold">
-          Marketing Inbox
-        </h2>
+        <h2 className="text-2xl font-bold">Marketing Inbox</h2>
 
         <p className="mt-1 text-sm text-slate-500">
-          Campaign conversations and directly linked
-          customer replies.
+          Campaign conversations and directly linked customer replies.
         </p>
       </div>
-
 
       {/* Main chat layout */}
 
       <div className="grid h-[75vh] min-h-[520px] overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm md:grid-cols-[310px_minmax(0,1fr)]">
-
-
         {/* LEFT SIDE - CONVERSATIONS */}
 
         <aside className="flex min-h-0 flex-col border-r border-slate-200">
-
-
           {/* Search and filters */}
 
           <div className="space-y-3 border-b border-slate-200 bg-white p-3">
-
             <div className="flex items-center gap-2 rounded-lg bg-slate-100 p-2.5">
-
-              <Search
-                size={17}
-                className="text-slate-400"
-              />
+              <Search size={17} className="text-slate-400" />
 
               <input
                 className="min-w-0 flex-1 bg-transparent text-sm outline-none"
                 placeholder="Search name or number"
                 value={search}
-
                 onChange={(e) => {
                   setSearch(e.target.value);
                   setPage(0);
                 }}
               />
-
             </div>
 
-
             <div className="flex items-center gap-2">
-
-              {[
-                "all",
-                "unread",
-                "replied",
-              ].map((f) => (
+              {["all", "unread", "replied"].map((f) => (
                 <button
                   type="button"
                   key={f}
-
                   onClick={() => {
                     setFilter(f);
                     setPage(0);
                   }}
-
                   className={
                     "rounded-full px-3 py-1 text-xs capitalize " +
                     (filter === f
@@ -348,31 +288,23 @@ export default function MarketingInbox() {
               <button
                 type="button"
                 aria-label="Refresh"
-                onClick={() =>
-                  setRevision((n) => n + 1)
-                }
+                onClick={() => setRevision((n) => n + 1)}
                 className="ml-auto text-slate-500"
               >
                 <RefreshCw size={16} />
               </button>
-
             </div>
           </div>
-
 
           {/* Conversation list */}
 
           {error && (
-            <p
-              role="alert"
-              className="p-3 text-sm text-red-700"
-            >
+            <p role="alert" className="p-3 text-sm text-red-700">
               {error}
             </p>
           )}
 
           <div className="min-h-0 flex-1 overflow-y-auto">
-
             {!list.length && !error && (
               <p className="p-5 text-sm text-slate-500">
                 No matching conversations.
@@ -380,12 +312,10 @@ export default function MarketingInbox() {
             )}
 
             {list.map((c) => (
-
               <button
                 type="button"
                 key={c.id}
                 onClick={() => setSelected(c.id)}
-
                 className={
                   "flex w-full items-center gap-3 border-b border-slate-100 p-3 text-left " +
                   (selected === c.id
@@ -393,31 +323,22 @@ export default function MarketingInbox() {
                     : "hover:bg-slate-50")
                 }
               >
-
                 {/* Avatar */}
 
                 <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-teal-700 font-semibold text-white">
-                  {(c.name || c.phone || "?")
-                    .slice(0, 1)
-                    .toUpperCase()}
+                  {(c.name || c.phone || "?").slice(0, 1).toUpperCase()}
                 </span>
 
                 <div className="min-w-0 flex-1">
-
                   <p className="truncate text-sm font-semibold">
                     {c.name || "+" + c.phone}
                   </p>
 
-                  <p className="truncate text-xs text-slate-500">
-                    +{c.phone}
-                  </p>
+                  <p className="truncate text-xs text-slate-500">+{c.phone}</p>
 
                   <p className="text-xs text-slate-400">
-                    {c.replies
-                      ? "Customer replied"
-                      : "Campaign message"}
+                    {c.replies ? "Customer replied" : "Campaign message"}
                   </p>
-
                 </div>
 
                 {!!c.unread && (
@@ -425,17 +346,13 @@ export default function MarketingInbox() {
                     {c.unread}
                   </span>
                 )}
-
               </button>
             ))}
-
           </div>
-
 
           {/* Conversation pagination */}
 
           <div className="flex justify-between border-t p-2">
-
             <button
               type="button"
               className={btn}
@@ -453,66 +370,39 @@ export default function MarketingInbox() {
             >
               Next
             </button>
-
           </div>
-
         </aside>
-
 
         {/* RIGHT SIDE - MESSAGES */}
 
         <section className="flex min-h-0 min-w-0 flex-col bg-[#f1eee7]">
-
           {chatError && (
-            <p
-              role="alert"
-              className="bg-red-50 p-3 text-sm text-red-700"
-            >
+            <p role="alert" className="bg-red-50 p-3 text-sm text-red-700">
               {chatError}
             </p>
           )}
 
-
           {!chat ? (
-
             <div className="m-auto p-6 text-center text-slate-500">
+              <MessageCircle className="mx-auto mb-3" size={40} />
 
-              <MessageCircle
-                className="mx-auto mb-3"
-                size={40}
-              />
-
-              {selected
-                ? "Loading conversation..."
-                : "Choose a conversation"}
-
+              {selected ? "Loading conversation..." : "Choose a conversation"}
             </div>
-
           ) : (
-
             <>
-
-
               {/* Conversation header */}
 
               <header className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-200 bg-white p-4">
-
                 <div className="flex items-center gap-3">
-
                   <span className="flex h-10 w-10 items-center justify-center rounded-full bg-teal-700 font-semibold text-white">
-
-                    {(chat.contact.name ||
-                      chat.contact.phone)
+                    {(chat.contact.name || chat.contact.phone)
                       .slice(0, 1)
                       .toUpperCase()}
-
                   </span>
 
                   <div>
-
                     <p className="font-semibold">
-                      {chat.contact.name ||
-                        "+" + chat.contact.phone}
+                      {chat.contact.name || "+" + chat.contact.phone}
                     </p>
 
                     <p className="text-xs text-slate-500">
@@ -522,9 +412,7 @@ export default function MarketingInbox() {
                       {" · "}
                       {chat.contact.consent_status}
                     </p>
-
                   </div>
-
                 </div>
 
                 <button
@@ -535,24 +423,19 @@ export default function MarketingInbox() {
                 >
                   Mark Read
                 </button>
-
               </header>
-
 
               {/* Chat message area */}
 
               <div
                 className="min-h-0 flex-1 space-y-4 overflow-y-auto p-4"
-
                 style={{
                   backgroundImage:
                     "radial-gradient(#d9d4c9 0.8px, transparent 0.8px)",
                   backgroundSize: "22px 22px",
                 }}
               >
-
                 {chat.messages.map((m) => (
-
                   <div
                     key={m.id}
                     className={
@@ -562,7 +445,6 @@ export default function MarketingInbox() {
                         : "justify-start")
                     }
                   >
-
                     <article
                       className={
                         "max-w-[85%] rounded-xl p-3 shadow-sm " +
@@ -571,84 +453,54 @@ export default function MarketingInbox() {
                           : "bg-white")
                       }
                     >
-
                       {m.direction === "outgoing" ? (
-
-                        <TemplateMessage
-                          message={m}
-                        />
-
+                        <TemplateMessage message={m} />
                       ) : (
-
                         <p className="whitespace-pre-wrap break-words text-sm">
                           {m.text}
                         </p>
-
                       )}
-
 
                       {/* Message time and status */}
 
                       <div className="mt-2 flex flex-wrap justify-end gap-1 text-[10px] text-slate-500">
-
-                        {new Date(
-                          m.at
-                        ).toLocaleString()}
+                        {new Date(m.at).toLocaleString()}
 
                         {m.direction === "outgoing" && (
-
                           <span
                             className={
                               "flex items-center gap-1 " +
                               (m.status === "read"
                                 ? "text-blue-600"
                                 : m.status === "failed"
-                                ? "text-red-600"
-                                : "")
+                                  ? "text-red-600"
+                                  : "")
                             }
                           >
-
-                            {[
-                              "delivered",
-                              "read",
-                            ].includes(m.status) && (
+                            {["delivered", "read"].includes(m.status) && (
                               <CheckCheck size={13} />
                             )}
 
                             {m.status}
-
                           </span>
-
                         )}
-
                       </div>
-
                     </article>
-
                   </div>
                 ))}
-
               </div>
-
 
               {/* Reply area - next phase */}
 
               <footer className="border-t border-slate-200 bg-white p-3">
-
                 <div className="rounded-xl bg-slate-100 p-3 text-sm text-slate-500">
-                  Reply sending will be enabled in
-                  the next phase.
+                  Reply sending will be enabled in the next phase.
                 </div>
-
               </footer>
-
             </>
           )}
-
         </section>
-
       </div>
-
     </div>
   );
 }

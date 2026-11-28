@@ -290,42 +290,56 @@ export default function CampaignManager() {
   // --------------------------------------------------
 
   async function saveDraft(event) {
-    event.preventDefault();
+  event.preventDefault();
 
-    if (
-      busy ||
-      !name.trim() ||
-      !templateId ||
-      !preview?.eligible ||
-      preview.over_limit
-    )
-      return;
+  if (
+    busy ||
+    !name.trim() ||
+    !templateId ||
+    !preview?.eligible ||
+    preview.over_limit
+  ) {
+    return;
+  }
 
-    setBusy(true);
-    setError("");
-    setNotice("");
+  setBusy(true);
+  setError("");
+  setNotice("");
+
+  try {
+    const result = await post("/admin/campaigns", {
+      name: name.trim(),
+      template_id: templateId,
+      audience,
+    });
+
+    setNotice(
+      `Draft saved: ${result.recipients} recipients. No messages sent.`
+    );
+
+    setFormOpen(false);
+    setPage(0);
+    setRevision((v) => v + 1);
 
     try {
-      const result = await post("/admin/campaigns", {
-        name: name.trim(),
-        template_id: templateId,
-        audience,
-      });
-
-      setNotice(
-        `Draft saved: ${result.recipients} recipients. No messages sent.`,
+      const savedDetails = await apiRequest(
+        "/admin/campaigns/" + result.campaign.id
       );
 
-      setFormOpen(false);
-      setPage(0);
-      setRevision((v) => v + 1);
+      setDetails(savedDetails);
     } catch (err) {
-      setError(err.message);
-      setPreview(null);
-    } finally {
-      setBusy(false);
+      setError(
+        "Draft saved. Open it from the campaign list: " +
+          err.message
+      );
     }
+  } catch (err) {
+    setError(err.message);
+    setPreview(null);
+  } finally {
+    setBusy(false);
   }
+}
 
   // --------------------------------------------------
   // Campaign Details
@@ -438,7 +452,7 @@ export default function CampaignManager() {
 
       <div className="flex items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-800">
         <ShieldCheck size={20} />
-        Draft mode — no WhatsApp messages will be sent.
+        Create a draft, configure the message, then choose Send Now or Schedule.
       </div>
 
       {/* Create Campaign Form */}
@@ -578,8 +592,7 @@ export default function CampaignManager() {
               <TemplatePreview template={template} />
 
               <p className="text-xs text-slate-500">
-                Media and template variables will be configured before sending
-                in the next phase.
+                Configure media and variables after saving the draft.
               </p>
             </div>
           </fieldset>
@@ -660,7 +673,7 @@ export default function CampaignManager() {
                 preview.over_limit
               }
             >
-              {busy ? "Processing..." : "Save Draft"}
+              {busy ? "Processing..." : "Save & Continue"}
             </button>
           </div>
         </form>
