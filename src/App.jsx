@@ -27,6 +27,7 @@ import MarketingTemplates from "./MarketingTemplates";
 import ContactsManager from "./contacts/ContactsManager";
 import CampaignManager from "./campaigns/CampaignManager";
 import MarketingInbox from "./marketing_inbox/MarketingInbox";
+import OverviewDashboard from "./OverviewDashboard";
 
 const sampleLeads = [
   {
@@ -911,7 +912,7 @@ function Dashboard({ admin, onLogout }) {
         </header>
 
         <main className="mx-auto max-w-7xl p-5 lg:p-8">
-          {page === "overview" && <Overview navigate={navigate} />}
+          {page === "overview" && <OverviewDashboard navigate={navigate} />}
           {page === "inbox" && <Inbox />}
           {page === "leads" && <Leads />}
           {page === "sales" && <SalesTeam />}
