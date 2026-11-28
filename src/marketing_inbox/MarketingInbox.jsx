@@ -32,9 +32,7 @@ function TemplateMessage({ message }) {
 
   return (
     <>
-      <p className="mb-2 text-xs font-semibold text-teal-800">
-        {message.campaign_name}
-      </p>
+      
 
       {parts.map((part, i) => {
         if (part.type === "HEADER") {
