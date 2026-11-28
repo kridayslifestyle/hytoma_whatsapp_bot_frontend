@@ -1011,7 +1011,7 @@ export default function ContactsManager() {
                 </tr>
               ) : contacts.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="p-8 text-center text-slate-500">
+                  <td colSpan={8} className="p-8 text-center text-slate-500">
                     No contacts found.
                   </td>
                 </tr>
@@ -1023,15 +1023,15 @@ export default function ContactsManager() {
                     <td className="px-4 py-4">
                       <input
                         type="checkbox"
-                        aria-label={`Select ${c.name || c.phone}`}
-                        className="h-4 w-4 accent-emerald-600"
+                        aria-label={`Select ${contact.name || contact.phone}`}
+                        className="h-4 w-4 cursor-pointer accent-emerald-600"
                         disabled={selectionDisabled}
-                        checked={selectedIds.includes(c.id)}
+                        checked={selectedIds.includes(contact.id)}
                         onChange={(e) =>
                           setSelectedIds((prev) =>
                             e.target.checked
-                              ? [...new Set([...prev, c.id])]
-                              : prev.filter((id) => id !== c.id),
+                              ? [...new Set([...prev, contact.id])]
+                              : prev.filter((id) => id !== contact.id),
                           )
                         }
                       />
@@ -1097,49 +1097,60 @@ export default function ContactsManager() {
                       </span>
                     </td>
 
-                    {/* Edit Action */}
+                    {/* Actions */}
 
                     <td className="px-4 py-4">
-                      <button
-                        type="button"
-                        disabled={archived || busy || !!editor || showImport}
-                        onClick={() => openEditor(contact)}
-                        className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-emerald-700 hover:bg-emerald-50 disabled:opacity-50"
-                      >
-                        <Pencil size={15} />
-                        Edit
-                      </button>
+                      <div className="flex flex-wrap items-center gap-2">
+                        {/* Edit Button */}
 
-                      <button
-                        type="button"
-                        className={buttonClass}
-                        onClick={() => {
-                          setHistory(c);
+                        <button
+                          type="button"
+                          disabled={archived || busy || !!editor || showImport}
+                          onClick={() => openEditor(contact)}
+                          className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-emerald-700 hover:bg-emerald-50 disabled:opacity-50"
+                        >
+                          <Pencil size={15} />
+                          Edit
+                        </button>
 
-                          window.scrollTo({
-                            top: 0,
-                            behavior: "smooth",
-                          });
-                        }}
-                      >
-                        History
-                      </button>
-                      <button
-                        type="button"
-                        className={
-                          buttonClass +
-                          (archived ? " text-emerald-700" : " text-red-700")
-                        }
-                        disabled={selectionDisabled}
-                        onClick={() =>
-                          bulkChange(
-                            archived ? "bulk-restore" : "bulk-archive",
-                            [c.id],
-                          )
-                        }
-                      >
-                        {archived ? "Restore" : "Delete"}
-                      </button>
+                        {/* History Button */}
+
+                        <button
+                          type="button"
+                          className={buttonClass}
+                          onClick={() => {
+                            setHistory(contact);
+
+                            window.scrollTo({
+                              top: 0,
+                              behavior: "smooth",
+                            });
+                          }}
+                        >
+                          History
+                        </button>
+
+                        {/* Delete / Restore Button */}
+
+                        <button
+                          type="button"
+                          className={
+                            buttonClass +
+                            (archived
+                              ? " text-emerald-700"
+                              : " text-red-700 hover:bg-red-50")
+                          }
+                          disabled={selectionDisabled}
+                          onClick={() =>
+                            bulkChange(
+                              archived ? "bulk-restore" : "bulk-archive",
+                              [contact.id],
+                            )
+                          }
+                        >
+                          {archived ? "Restore" : "Delete"}
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))
