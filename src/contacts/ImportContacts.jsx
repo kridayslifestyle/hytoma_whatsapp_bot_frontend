@@ -202,7 +202,7 @@ export default function ImportContacts({ onClose, onImported }) {
           {/* STATISTICS */}
 
           <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-            {Object.entries(preview.counts).map(([key, value]) => (
+            {Object.entries(preview?.counts || {}).map(([key, value]) => (
               <div key={key} className="rounded-lg border border-slate-200 p-3">
                 <p className="text-xs capitalize text-slate-500">{key}</p>
 
@@ -237,21 +237,83 @@ export default function ImportContacts({ onClose, onImported }) {
               </thead>
 
               <tbody>
-                {preview.rows.map((row) => (
-                  <tr key={row.row} className="border-t border-slate-100">
-                    <td className="p-2">{row.row}</td>
+                <div className="max-h-80 overflow-auto rounded-lg border border-slate-200">
+                  <table className="w-full text-left text-sm">
+                    <thead className="sticky top-0 bg-slate-50">
+                      <tr>
+                        {[
+                          "Row",
+                          "Phone",
+                          "Name",
+                          "Location",
+                          "Contact Type",
+                          "Tags",
+                          "Status",
+                          "Reason",
+                        ].map((heading) => (
+                          <th key={heading} className="p-3">
+                            {heading}
+                          </th>
+                        ))}
+                      </tr>
+                    </thead>
 
-                    <td className="p-2">{row.phone || "—"}</td>
+                    <tbody>
+                      {(preview?.rows || []).map((row) => (
+                        <tr key={row.row} className="border-t border-slate-100">
+                          <td className="p-3">{row.row}</td>
 
-                    <td className="p-2">{row.name || "—"}</td>
+                          <td className="p-3 whitespace-nowrap">
+                            {row.phone || "—"}
+                          </td>
 
-                    <td className="p-2 capitalize">{row.status}</td>
+                          <td className="p-3 font-medium">{row.name || "—"}</td>
 
-                    <td className="p-2 text-xs text-slate-500">
-                      {row.error || "—"}
-                    </td>
-                  </tr>
-                ))}
+                          <td className="p-3">{row.location || "—"}</td>
+
+                          <td className="p-3 capitalize">
+                            {(row.contact_type || "unclassified").replaceAll(
+                              "_",
+                              " ",
+                            )}
+                          </td>
+
+                          <td className="p-3">
+                            <div className="flex flex-wrap gap-1">
+                              {(row.tags || []).map((tag, index) => (
+                                <span
+                                  key={index}
+                                  className="rounded-full bg-slate-100 px-2 py-1 text-xs text-slate-600"
+                                >
+                                  {tag}
+                                </span>
+                              ))}
+                            </div>
+                          </td>
+
+                          <td className="p-3">
+                            <span
+                              className={
+                                "rounded-full px-2.5 py-1 text-xs font-semibold capitalize " +
+                                (row.status === "valid"
+                                  ? "bg-emerald-100 text-emerald-700"
+                                  : row.status === "duplicate"
+                                    ? "bg-amber-100 text-amber-700"
+                                    : "bg-red-100 text-red-700")
+                              }
+                            >
+                              {row.status}
+                            </span>
+                          </td>
+
+                          <td className="p-3 text-xs text-slate-500">
+                            {row.error || "—"}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
               </tbody>
             </table>
           </div>
@@ -289,7 +351,7 @@ export default function ImportContacts({ onClose, onImported }) {
 
         <button
           className={primary}
-          disabled={busy || !preview?.counts.valid}
+          disabled={busy || !preview?.counts?.valid}
           onClick={confirmImport}
         >
           Confirm Import
