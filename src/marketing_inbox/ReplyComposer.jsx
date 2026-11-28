@@ -91,6 +91,7 @@ export default function ReplyComposer({ chat, onSent }) {
   const open = seconds > 60;
 
   const blocked =
+    Boolean(chat.contact.archived_at) ||
     chat.contact.consent_status === "opted_out" ||
     chat.lead_status === "opted_out";
 
@@ -326,7 +327,9 @@ export default function ReplyComposer({ chat, onSent }) {
       </div>
 
       {blocked ? (
-        <p className="text-sm text-red-700">This contact has opted out.</p>
+        <p className="text-sm text-red-700">
+          This contact is archived or has opted out.
+        </p>
       ) : (
         <>
           {/* ACTION BUTTONS */}

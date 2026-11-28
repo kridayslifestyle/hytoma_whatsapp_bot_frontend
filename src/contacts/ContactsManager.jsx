@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import { apiRequest } from "../api";
 import ImportContacts from "./ImportContacts";
+import ContactHistory from "./ContactHistory";
 
 const PAGE_SIZE = 50;
 
@@ -62,6 +63,16 @@ const sourceLabels = {
   csv: "CSV Import",
 };
 
+const filters = () =>
+  new URLSearchParams({
+    search,
+    consent_status: consent,
+    contact_type: contactType,
+    tag,
+    tag_mode: tagMode,
+    archived: String(archived),
+  });
+
 export default function ContactsManager() {
   const [data, setData] = useState(null);
   const [search, setSearch] = useState("");
@@ -76,6 +87,11 @@ export default function ContactsManager() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
+  const [tagMode, setTagMode] = useState("all");
+
+  const [archived, setArchived] = useState(false);
+
+  const [history, setHistory] = useState(null);
   const [selectedIds, setSelectedIds] = useState([]);
   const [showImport, setShowImport] = useState(false);
   const [editor, setEditor] = useState(null);
@@ -93,6 +109,8 @@ export default function ContactsManager() {
       consent_status: consent,
       contact_type: contactType,
       tag,
+      tag_mode: tagMode,
+      archived: String(archived),
       limit: String(PAGE_SIZE),
       offset: String(page * PAGE_SIZE),
     });
@@ -118,7 +136,7 @@ export default function ContactsManager() {
       active = false;
       clearTimeout(timer);
     };
-  }, [search, consent, contactType, tag, page, revision]);
+  }, [search, consent, contactType, tag, tagMode, archived, page, revision]);
 
   // Contact editor
 
@@ -256,12 +274,11 @@ export default function ContactsManager() {
   // Bulk contact classification
 
   async function changeType() {
-    if (selectionDisabled || error || !bulkType || !selectedContacts.length)
-      return;
+    if (selectionDisabled || error || !bulkType || !sselectedIds.length) return;
 
     if (
       !window.confirm(
-        `Classify ${selectedContacts.length} contacts as ${typeLabels[bulkType]}?`,
+        `Classify ${selectedIds.length} contacts as ${typeLabels[bulkType]}?`,
       )
     )
       return;
@@ -274,7 +291,7 @@ export default function ContactsManager() {
       const result = await apiRequest("/admin/contacts/bulk-type", {
         method: "POST",
         body: JSON.stringify({
-          contact_ids: selectedContacts.map((contact) => contact.id),
+          contact_ids: selectedIds((contact) => contact.id),
           contact_type: bulkType,
         }),
       });
@@ -297,13 +314,13 @@ export default function ContactsManager() {
   async function applyBulkTag() {
     const value = bulkTag.trim();
 
-    if (selectionDisabled || !value || !selectedContacts.length) {
+    if (selectionDisabled || !value || !selectedIds.length) {
       return;
     }
 
     if (
       !window.confirm(
-        `Apply "${value}" to ${selectedContacts.length} selected contacts?`,
+        `Apply "${value}" to ${selectedIds.length} selected contacts?`,
       )
     ) {
       return;
@@ -318,7 +335,7 @@ export default function ContactsManager() {
         method: "POST",
 
         body: JSON.stringify({
-          contact_ids: selectedContacts.map((contact) => contact.id),
+          contact_ids: selectedIds((contact) => contact.id),
 
           tag: value,
         }),
@@ -399,6 +416,91 @@ export default function ContactsManager() {
     ["Builders", stats.builders, Users, "text-amber-600"],
   ];
 
+  async function selectAll() {
+    if (selectionDisabled || error) return;
+
+    setBusy(true);
+    setError("");
+
+    try {
+      const result = await apiRequest(
+        "/admin/contacts/matching-ids?" + filters(),
+      );
+
+      setSelectedIds(result.contact_ids);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function bulkChange(action) {
+    if (selectionDisabled || !selectedIds.length) {
+      return;
+    }
+
+    if (action === "bulk-remove-tag" && !bulkTag.trim()) {
+      return;
+    }
+
+    const label =
+      action === "bulk-archive"
+        ? "Archive"
+        : action === "bulk-restore"
+          ? "Restore"
+          : "Remove tag " + bulkTag.trim();
+
+    const confirmed = window.confirm(
+      label +
+        " for " +
+        selectedIds.length +
+        " selected contacts?" +
+        (action === "bulk-archive"
+          ? "\n\nContacts will be excluded from future marketing. Campaign history will be preserved."
+          : ""),
+    );
+
+    if (!confirmed) return;
+
+    setBusy(true);
+    setError("");
+    setNotice("");
+
+    try {
+      const payload = {
+        contact_ids: selectedIds,
+        confirmed: true,
+      };
+
+      if (action === "bulk-remove-tag") {
+        payload.tag = bulkTag.trim();
+      }
+
+      const result = await apiRequest("/admin/contacts/" + action, {
+        method: "POST",
+        body: JSON.stringify(payload),
+      });
+
+      setNotice(
+        label +
+          ": " +
+          result.updated +
+          " updated, " +
+          result.skipped +
+          " skipped.",
+      );
+
+      setSelectedIds([]);
+      setPage(0);
+      setRevision((v) => v + 1);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setBusy(false);
+    }
+  }
+
   return (
     <div className="space-y-6">
       {/* Page Header */}
@@ -452,6 +554,13 @@ export default function ContactsManager() {
             <Plus size={18} />
             Add Contact
           </button>
+
+          <a
+            className={buttonClass}
+            href={"/api/admin/contacts/export.csv?" + filters()}
+          >
+            Export CSV
+          </a>
         </div>
       </div>
 
@@ -669,9 +778,11 @@ export default function ContactsManager() {
         </select>
 
         <input
-          aria-label="Filter tag"
+          aria-label="Filter tags"
           className={inputClass + " !w-auto"}
-          placeholder="Exact tag..."
+          placeholder="Tags, comma separated..."
+          maxLength={1620}
+          disabled={busy}
           value={tag}
           onChange={(e) => {
             setTag(e.target.value);
@@ -681,81 +792,130 @@ export default function ContactsManager() {
         />
 
         <select
-          aria-label="Filter consent"
-          className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm"
-          value={consent}
+          className={buttonClass}
+          value={tagMode}
+          disabled={busy}
           onChange={(e) => {
-            setConsent(e.target.value);
+            setTagMode(e.target.value);
             setSelectedIds([]);
             setPage(0);
           }}
         >
-          <option value="all">All Consent Statuses</option>
+          <option value="all">Match all tags</option>
 
-          {Object.entries(consentLabels).map(([key, label]) => (
-            <option key={key} value={key}>
-              {label}
-            </option>
-          ))}
+          <option value="any">Match any tag</option>
+        </select>
+
+        <select
+          className={buttonClass}
+          value={String(archived)}
+          disabled={busy}
+          onChange={(e) => {
+            setArchived(e.target.value === "true");
+            setSelectedIds([]);
+            setPage(0);
+            setHistory(null);
+          }}
+        >
+          <option value="false">Active contacts</option>
+
+          <option value="true">Archived contacts</option>
         </select>
       </div>
 
       {/* Bulk Actions */}
 
       <div className="space-y-3 rounded-xl border border-slate-200 bg-white p-4">
-        <div className="flex flex-wrap items-center gap-3">
-          <span className="mr-auto text-sm font-semibold text-slate-700">
-            {selectedContacts.length} selected (current page)
+        <div className="flex flex-wrap items-center gap-2 rounded-lg border border-slate-200 bg-white p-3">
+          <span className="mr-auto text-sm font-medium text-slate-600">
+            {selectedIds.length} selected across pages
           </span>
 
-          <select
-            aria-label="Bulk contact type"
-            className={buttonClass}
-            disabled={selectionDisabled || !selectedContacts.length}
-            value={bulkType}
-            onChange={(e) => setBulkType(e.target.value)}
-          >
-            <option value="">Change Contact Type</option>
-
-            {Object.entries(typeLabels).map(([key, label]) => (
-              <option key={key} value={key}>
-                {label}
-              </option>
-            ))}
-          </select>
-
           <button
-            type="button"
             className={buttonClass}
-            disabled={
-              selectionDisabled || !selectedContacts.length || !bulkType
-            }
-            onClick={changeType}
+            disabled={selectionDisabled || !total || !!error}
+            onClick={selectAll}
           >
-            Apply Type
+            Select all {total} matching
           </button>
 
-          <input
-            aria-label="Bulk tag"
-            className="min-w-[180px] rounded-lg border border-slate-300 px-3 py-2.5 text-sm"
-            placeholder="Enter tag name..."
-            maxLength={80}
-            value={bulkTag}
-            disabled={selectionDisabled || !selectedContacts.length}
-            onChange={(e) => setBulkTag(e.target.value)}
-          />
+          <button
+            className={buttonClass}
+            disabled={busy || !selectedIds.length}
+            onClick={() => setSelectedIds([])}
+          >
+            Clear selection
+          </button>
 
           <button
-            type="button"
-            className={primaryClass}
-            disabled={
-              selectionDisabled || !selectedContacts.length || !bulkTag.trim()
+            className={
+              buttonClass + (archived ? " text-emerald-700" : " text-red-700")
             }
-            onClick={applyBulkTag}
+            disabled={selectionDisabled || !selectedIds.length}
+            onClick={() =>
+              bulkChange(archived ? "bulk-restore" : "bulk-archive")
+            }
           >
-            <Tag size={16} />
-            Apply Tag
+            {archived ? "Restore selected" : "Delete selected"}
           </button>
+
+          {!archived && (
+            <>
+              <select
+                aria-label="Bulk contact type"
+                className={buttonClass}
+                disabled={selectionDisabled || !selectedIds.length}
+                value={bulkType}
+                onChange={(e) => setBulkType(e.target.value)}
+              >
+                <option value="">Change Contact Type</option>
+
+                {Object.entries(typeLabels).map(([key, label]) => (
+                  <option key={key} value={key}>
+                    {label}
+                  </option>
+                ))}
+              </select>
+
+              <button
+                className={buttonClass}
+                disabled={selectionDisabled || !selectedIds.length || !bulkType}
+                onClick={changeType}
+              >
+                Apply Type
+              </button>
+
+              <input
+                aria-label="Bulk tag"
+                className={inputClass + " !w-auto"}
+                maxLength={80}
+                placeholder="Tag to add or remove..."
+                disabled={selectionDisabled || !selectedIds.length}
+                value={bulkTag}
+                onChange={(e) => setBulkTag(e.target.value)}
+              />
+
+              <button
+                className={primaryClass}
+                disabled={
+                  selectionDisabled || !selectedIds.length || !bulkTag.trim()
+                }
+                onClick={applyBulkTag}
+              >
+                Add Tag
+              </button>
+
+              <button
+                className={buttonClass}
+                disabled={
+                  selectionDisabled || !selectedIds.length || !bulkTag.trim()
+                }
+                onClick={() => bulkChange("bulk-remove-tag")}
+              >
+                Remove Tag
+              </button>
+            </>
+          )}
         </div>
 
         <details className="text-sm">
@@ -785,6 +945,14 @@ export default function ContactsManager() {
         </details>
       </div>
 
+      {history && (
+        <ContactHistory
+          key={history.id}
+          contact={history}
+          onClose={() => setHistory(null)}
+        />
+      )}
+
       {/* Contacts Table */}
 
       <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
@@ -800,15 +968,20 @@ export default function ContactsManager() {
                     disabled={selectionDisabled || !contacts.length || !!error}
                     checked={
                       contacts.length > 0 &&
-                      contacts.every((contact) =>
-                        selectedIds.includes(contact.id),
-                      )
+                      contacts.every((c) => selectedIds.includes(c.id))
                     }
                     onChange={(e) =>
-                      setSelectedIds(
+                      setSelectedIds((prev) =>
                         e.target.checked
-                          ? contacts.map((contact) => contact.id)
-                          : [],
+                          ? [
+                              ...new Set([
+                                ...prev,
+                                ...contacts.map((c) => c.id),
+                              ]),
+                            ]
+                          : prev.filter(
+                              (id) => !contacts.some((c) => c.id === id),
+                            ),
                       )
                     }
                   />
@@ -912,12 +1085,27 @@ export default function ContactsManager() {
                     <td className="px-4 py-4">
                       <button
                         type="button"
-                        disabled={busy || !!editor || showImport}
+                        disabled={archived || busy || !!editor || showImport}
                         onClick={() => openEditor(contact)}
                         className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-emerald-700 hover:bg-emerald-50 disabled:opacity-50"
                       >
                         <Pencil size={15} />
                         Edit
+                      </button>
+
+                      <button
+                        type="button"
+                        className={buttonClass}
+                        onClick={() => {
+                          setHistory(c);
+
+                          window.scrollTo({
+                            top: 0,
+                            behavior: "smooth",
+                          });
+                        }}
+                      >
+                        History
                       </button>
                     </td>
                   </tr>
@@ -940,10 +1128,7 @@ export default function ContactsManager() {
               className={buttonClass}
               aria-label="Previous page"
               disabled={loading || page === 0}
-              onClick={() => {
-                setSelectedIds([]);
-                setPage((p) => p - 1);
-              }}
+              onClick={() => setPage((p) => p - 1)}
             >
               <ChevronLeft size={16} />
             </button>
@@ -956,10 +1141,7 @@ export default function ContactsManager() {
               className={buttonClass}
               aria-label="Next page"
               disabled={loading || page + 1 >= pages}
-              onClick={() => {
-                setSelectedIds([]);
-                setPage((p) => p + 1);
-              }}
+              onClick={() => setPage((p) => p + 1)}
             >
               <ChevronRight size={16} />
             </button>
