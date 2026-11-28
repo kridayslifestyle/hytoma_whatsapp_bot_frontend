@@ -1,7 +1,17 @@
 import { useEffect, useState } from "react";
 import {
-  Users, UserCheck, Clock3, UserX, Search,
-  Plus, RefreshCw, Pencil, X, ChevronLeft, ChevronRight,
+  Users,
+  UserCheck,
+  Clock3,
+  UserX,
+  Search,
+  Plus,
+  RefreshCw,
+  Pencil,
+  X,
+  ChevronLeft,
+  ChevronRight,
+  Tag,
 } from "lucide-react";
 import { apiRequest } from "../api";
 import ImportContacts from "./ImportContacts";
@@ -59,6 +69,7 @@ export default function ContactsManager() {
   const [contactType, setContactType] = useState("all");
   const [tag, setTag] = useState("");
   const [bulkType, setBulkType] = useState("");
+  const [bulkTag, setBulkTag] = useState("");
   const [page, setPage] = useState(0);
   const [revision, setRevision] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -93,15 +104,11 @@ export default function ContactsManager() {
       setError("");
 
       try {
-        const result = await apiRequest(
-          "/admin/contacts?" + params
-        );
+        const result = await apiRequest("/admin/contacts?" + params);
 
         if (active) setData(result);
-
       } catch (err) {
         if (active) setError(err.message);
-
       } finally {
         if (active) setLoading(false);
       }
@@ -111,15 +118,7 @@ export default function ContactsManager() {
       active = false;
       clearTimeout(timer);
     };
-
-  }, [
-    search,
-    consent,
-    contactType,
-    tag,
-    page,
-    revision,
-  ]);
+  }, [search, consent, contactType, tag, page, revision]);
 
   // Contact editor
 
@@ -127,9 +126,7 @@ export default function ContactsManager() {
     setError("");
     setNotice("");
 
-    setEditor(
-      contact ? { id: contact.id } : { id: null }
-    );
+    setEditor(contact ? { id: contact.id } : { id: null });
 
     setForm(
       contact
@@ -137,16 +134,15 @@ export default function ContactsManager() {
             phone: contact.phone,
             name: contact.name || "",
             location: contact.location || "",
-            contact_type:
-              contact.contact_type || "unclassified",
+            contact_type: contact.contact_type || "unclassified",
             tags: (contact.tags || []).join(", "),
           }
-        : { ...emptyForm }
+        : { ...emptyForm },
     );
   }
 
   function updateField(key, value) {
-    setForm(prev => ({
+    setForm((prev) => ({
       ...prev,
       [key]: value,
     }));
@@ -172,8 +168,8 @@ export default function ContactsManager() {
           ...new Set(
             form.tags
               .split(",")
-              .map(t => t.trim())
-              .filter(Boolean)
+              .map((t) => t.trim())
+              .filter(Boolean),
           ),
         ],
       };
@@ -183,29 +179,21 @@ export default function ContactsManager() {
       }
 
       await apiRequest(
-        editor.id === null
-          ? "/admin/contacts"
-          : "/admin/contacts/" + editor.id,
+        editor.id === null ? "/admin/contacts" : "/admin/contacts/" + editor.id,
         {
           method: editor.id === null ? "POST" : "PATCH",
           body: JSON.stringify(payload),
-        }
+        },
       );
 
-      setNotice(
-        editor.id === null
-          ? "Contact added."
-          : "Contact updated."
-      );
+      setNotice(editor.id === null ? "Contact added." : "Contact updated.");
 
       setEditor(null);
       setSelectedIds([]);
       setPage(0);
-      setRevision(v => v + 1);
-
+      setRevision((v) => v + 1);
     } catch (err) {
       setError(err.message);
-
     } finally {
       setBusy(false);
     }
@@ -217,31 +205,29 @@ export default function ContactsManager() {
     if (
       busy ||
       !window.confirm(
-        "Import contacts from existing CRM leads? No messages will be sent."
+        "Import contacts from existing CRM leads? No messages will be sent.",
       )
-    ) return;
+    )
+      return;
 
     setBusy(true);
     setError("");
     setNotice("");
 
     try {
-      const result = await apiRequest(
-        "/admin/contacts/sync-crm",
-        { method: "POST" }
-      );
+      const result = await apiRequest("/admin/contacts/sync-crm", {
+        method: "POST",
+      });
 
       setNotice(
-        `CRM sync completed: ${result.added} added, ${result.existing} existing, ${result.invalid} invalid.`
+        `CRM sync completed: ${result.added} added, ${result.existing} existing, ${result.invalid} invalid.`,
       );
 
       setSelectedIds([]);
       setPage(0);
-      setRevision(v => v + 1);
-
+      setRevision((v) => v + 1);
     } catch (err) {
       setError(err.message);
-
     } finally {
       setBusy(false);
     }
@@ -251,69 +237,105 @@ export default function ContactsManager() {
 
   const contacts = data?.contacts || [];
 
-  const selectedContacts = contacts.filter(
-    contact => selectedIds.includes(contact.id)
+  const selectedContacts = contacts.filter((contact) =>
+    selectedIds.includes(contact.id),
   );
 
   const eligibleOptIn = selectedContacts.filter(
-    contact =>
+    (contact) =>
       contact.consent_status === "pending" &&
-      !/^120255501[0-9]{2}$/.test(contact.phone)
+      !/^120255501[0-9]{2}$/.test(contact.phone),
   );
 
   const eligibleOptOut = selectedContacts.filter(
-    contact => contact.consent_status !== "opted_out"
+    (contact) => contact.consent_status !== "opted_out",
   );
 
-  const selectionDisabled =
-    busy || loading || !!editor || showImport;
+  const selectionDisabled = busy || loading || !!editor || showImport;
 
   // Bulk contact classification
 
   async function changeType() {
-    if (
-      selectionDisabled ||
-      error ||
-      !bulkType ||
-      !selectedContacts.length
-    ) return;
+    if (selectionDisabled || error || !bulkType || !selectedContacts.length)
+      return;
 
     if (
       !window.confirm(
-        `Classify ${selectedContacts.length} contacts as ${typeLabels[bulkType]}?`
+        `Classify ${selectedContacts.length} contacts as ${typeLabels[bulkType]}?`,
       )
-    ) return;
+    )
+      return;
 
     setBusy(true);
     setError("");
     setNotice("");
 
     try {
-      const result = await apiRequest(
-        "/admin/contacts/bulk-type",
-        {
-          method: "POST",
-          body: JSON.stringify({
-            contact_ids: selectedContacts.map(
-              contact => contact.id
-            ),
-            contact_type: bulkType,
-          }),
-        }
-      );
+      const result = await apiRequest("/admin/contacts/bulk-type", {
+        method: "POST",
+        body: JSON.stringify({
+          contact_ids: selectedContacts.map((contact) => contact.id),
+          contact_type: bulkType,
+        }),
+      });
 
       setNotice(
-        `Classification: ${result.updated} updated, ${result.skipped} skipped.`
+        `Classification: ${result.updated} updated, ${result.skipped} skipped.`,
       );
 
       setSelectedIds([]);
       setBulkType("");
       setPage(0);
-      setRevision(v => v + 1);
-
+      setRevision((v) => v + 1);
     } catch (err) {
       setError(err.message);
+    } finally {
+      setBusy(false);
+    }
+  }
 
+  async function applyBulkTag() {
+    const value = bulkTag.trim();
+
+    if (selectionDisabled || !value || !selectedContacts.length) {
+      return;
+    }
+
+    if (
+      !window.confirm(
+        `Apply "${value}" to ${selectedContacts.length} selected contacts?`,
+      )
+    ) {
+      return;
+    }
+
+    setBusy(true);
+    setError("");
+    setNotice("");
+
+    try {
+      const result = await apiRequest("/admin/contacts/bulk-tag", {
+        method: "POST",
+
+        body: JSON.stringify({
+          contact_ids: selectedContacts.map((contact) => contact.id),
+
+          tag: value,
+        }),
+      });
+
+      setNotice(
+        `Tag applied successfully: ${result.updated} updated, ` +
+          `${result.already_tagged} already tagged, ` +
+          `${result.tag_limit} at tag limit, ` +
+          `${result.missing} missing.`,
+      );
+
+      setBulkTag("");
+      setSelectedIds([]);
+      setRevision((v) => v + 1);
+    } catch (err) {
+      setError(err.message);
     } finally {
       setBusy(false);
     }
@@ -324,11 +346,9 @@ export default function ContactsManager() {
   async function changeConsent(action) {
     if (selectionDisabled || error) return;
 
-    const ids = (
-      action === "bulk-opt-in"
-        ? eligibleOptIn
-        : eligibleOptOut
-    ).map(contact => contact.id);
+    const ids = (action === "bulk-opt-in" ? eligibleOptIn : eligibleOptOut).map(
+      (contact) => contact.id,
+    );
 
     if (!ids.length) return;
 
@@ -344,27 +364,22 @@ export default function ContactsManager() {
     setNotice("");
 
     try {
-      const result = await apiRequest(
-        "/admin/contacts/consent/" + action,
-        {
-          method: "POST",
-          body: JSON.stringify({
-            contact_ids: ids,
-            confirmed: true,
-          }),
-        }
-      );
+      const result = await apiRequest("/admin/contacts/consent/" + action, {
+        method: "POST",
+        body: JSON.stringify({
+          contact_ids: ids,
+          confirmed: true,
+        }),
+      });
 
       setNotice(
-        `Consent updated: ${result.updated} updated, ${result.skipped} skipped.`
+        `Consent updated: ${result.updated} updated, ${result.skipped} skipped.`,
       );
 
       setSelectedIds([]);
-      setRevision(v => v + 1);
-
+      setRevision((v) => v + 1);
     } catch (err) {
       setError(err.message);
-
     } finally {
       setBusy(false);
     }
@@ -375,21 +390,17 @@ export default function ContactsManager() {
   const stats = data?.stats || {};
   const total = data?.total || 0;
 
-  const pages = Math.max(
-    1,
-    Math.ceil(total / PAGE_SIZE)
-  );
+  const pages = Math.max(1, Math.ceil(total / PAGE_SIZE));
 
   const cards = [
     ["Total Contacts", stats.total, Users, "text-blue-600"],
-    ["Opted In", stats.opted_in, UserCheck, "text-emerald-600"],
-    ["Pending Consent", stats.pending, Clock3, "text-amber-600"],
-    ["Opted Out", stats.opted_out, UserX, "text-red-600"],
+    ["Customers", stats.customers, UserCheck, "text-emerald-600"],
+    ["Interior Designers", stats.interior_designers, Users, "text-violet-600"],
+    ["Builders", stats.builders, Users, "text-amber-600"],
   ];
 
   return (
     <div className="space-y-6">
-
       {/* Page Header */}
 
       <div className="flex flex-wrap items-center justify-between gap-4">
@@ -404,19 +415,15 @@ export default function ContactsManager() {
         </div>
 
         <div className="flex flex-wrap gap-2">
-
           <button
             className={buttonClass}
             disabled={busy || loading}
             onClick={() => {
               setSelectedIds([]);
-              setRevision(v => v + 1);
+              setRevision((v) => v + 1);
             }}
           >
-            <RefreshCw
-              size={16}
-              className={loading ? "animate-spin" : ""}
-            />
+            <RefreshCw size={16} className={loading ? "animate-spin" : ""} />
             Refresh
           </button>
 
@@ -445,14 +452,12 @@ export default function ContactsManager() {
             <Plus size={18} />
             Add Contact
           </button>
-
         </div>
       </div>
 
       {/* Statistics Cards */}
 
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-
         {cards.map(([label, value, Icon, color]) => (
           <div
             key={label}
@@ -468,7 +473,6 @@ export default function ContactsManager() {
             </p>
           </div>
         ))}
-
       </div>
 
       {/* Success Message */}
@@ -487,16 +491,16 @@ export default function ContactsManager() {
       {showImport && (
         <ImportContacts
           onClose={() => setShowImport(false)}
-          onImported={result => {
+          onImported={(result) => {
             setShowImport(false);
 
             setNotice(
-              `Import completed: ${result.added} added, ${result.duplicates} duplicates, ${result.invalid} invalid, ${result.opted_in ?? 0} opted in.`
+              `Import completed: ${result.added} added, ${result.duplicates} duplicates, ${result.invalid} invalid, ${result.opted_in ?? 0} opted in.`,
             );
 
             setSelectedIds([]);
             setPage(0);
-            setRevision(v => v + 1);
+            setRevision((v) => v + 1);
           }}
         />
       )}
@@ -509,11 +513,8 @@ export default function ContactsManager() {
           className="space-y-4 rounded-xl border border-slate-200 bg-white p-5 shadow-sm"
         >
           <div className="flex items-center justify-between">
-
             <h3 className="font-semibold">
-              {editor.id === null
-                ? "Add Contact"
-                : "Edit Contact"}
+              {editor.id === null ? "Add Contact" : "Edit Contact"}
             </h3>
 
             <button
@@ -527,17 +528,11 @@ export default function ContactsManager() {
             >
               <X size={20} />
             </button>
-
           </div>
 
-          <fieldset
-            disabled={busy}
-            className="grid gap-4 sm:grid-cols-2"
-          >
-
+          <fieldset disabled={busy} className="grid gap-4 sm:grid-cols-2">
             <label className="space-y-1 text-sm font-medium text-slate-700">
               Phone number
-
               <input
                 className={inputClass}
                 type="tel"
@@ -545,84 +540,63 @@ export default function ContactsManager() {
                 maxLength={40}
                 disabled={editor.id !== null || busy}
                 value={form.phone}
-                onChange={e =>
-                  updateField("phone", e.target.value)
-                }
+                onChange={(e) => updateField("phone", e.target.value)}
                 placeholder="+91XXXXXXXXXX"
               />
             </label>
 
             <label className="space-y-1 text-sm font-medium text-slate-700">
               Contact name
-
               <input
                 className={inputClass}
                 maxLength={150}
                 value={form.name}
-                onChange={e =>
-                  updateField("name", e.target.value)
-                }
+                onChange={(e) => updateField("name", e.target.value)}
               />
             </label>
 
             <label className="space-y-1 text-sm font-medium text-slate-700">
               Location
-
               <input
                 className={inputClass}
                 maxLength={255}
                 value={form.location}
-                onChange={e =>
-                  updateField("location", e.target.value)
-                }
+                onChange={(e) => updateField("location", e.target.value)}
               />
             </label>
 
             <label className="space-y-1 text-sm font-medium text-slate-700">
               Contact Type
-
               <select
                 className={inputClass}
                 value={form.contact_type}
-                onChange={e =>
-                  updateField(
-                    "contact_type",
-                    e.target.value
-                  )
-                }
+                onChange={(e) => updateField("contact_type", e.target.value)}
               >
-                {Object.entries(typeLabels).map(
-                  ([key, label]) => (
-                    <option key={key} value={key}>
-                      {label}
-                    </option>
-                  )
-                )}
+                {Object.entries(typeLabels).map(([key, label]) => (
+                  <option key={key} value={key}>
+                    {label}
+                  </option>
+                ))}
               </select>
             </label>
 
             <label className="space-y-1 text-sm font-medium text-slate-700">
               Tags (comma separated)
-
               <input
                 className={inputClass}
                 value={form.tags}
-                onChange={e =>
-                  updateField("tags", e.target.value)
-                }
+                onChange={(e) => updateField("tags", e.target.value)}
                 placeholder="Villa, Full Home Automation"
               />
             </label>
-
           </fieldset>
 
           <p className="text-xs text-slate-500">
-            New contacts have pending consent.
-            Editing does not grant marketing permission.
+            New contacts have pending consent. Editing does not grant marketing
+            permission.
           </p>
 
           <div className="flex flex-wrap justify-end gap-2">
-
             <button
               type="button"
               className={buttonClass}
@@ -635,14 +609,9 @@ export default function ContactsManager() {
               Cancel
             </button>
 
-            <button
-              type="submit"
-              className={primaryClass}
-              disabled={busy}
-            >
+            <button type="submit" className={primaryClass} disabled={busy}>
               {busy ? "Saving..." : "Save Contact"}
             </button>
-
           </div>
         </form>
       )}
@@ -661,9 +630,7 @@ export default function ContactsManager() {
       {/* Search and Filters */}
 
       <div className="flex flex-wrap gap-3 rounded-xl border border-slate-200 bg-white p-4">
-
         <div className="relative min-w-0 flex-1">
-
           <Search
             size={17}
             className="absolute left-3 top-3.5 text-slate-400"
@@ -674,36 +641,31 @@ export default function ContactsManager() {
             className={inputClass + " pl-10"}
             placeholder="Search name, phone or location..."
             value={search}
-            onChange={e => {
+            onChange={(e) => {
               setSearch(e.target.value);
               setSelectedIds([]);
               setPage(0);
             }}
           />
-
         </div>
 
         <select
           aria-label="Contact type"
           className={buttonClass}
           value={contactType}
-          onChange={e => {
+          onChange={(e) => {
             setContactType(e.target.value);
             setSelectedIds([]);
             setPage(0);
           }}
         >
-          <option value="all">
-            All Contact Types
-          </option>
+          <option value="all">All Contact Types</option>
 
-          {Object.entries(typeLabels).map(
-            ([key, label]) => (
-              <option key={key} value={key}>
-                {label}
-              </option>
-            )
-          )}
+          {Object.entries(typeLabels).map(([key, label]) => (
+            <option key={key} value={key}>
+              {label}
+            </option>
+          ))}
         </select>
 
         <input
@@ -711,7 +673,7 @@ export default function ContactsManager() {
           className={inputClass + " !w-auto"}
           placeholder="Exact tag..."
           value={tag}
-          onChange={e => {
+          onChange={(e) => {
             setTag(e.target.value);
             setSelectedIds([]);
             setPage(0);
@@ -722,132 +684,131 @@ export default function ContactsManager() {
           aria-label="Filter consent"
           className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm"
           value={consent}
-          onChange={e => {
+          onChange={(e) => {
             setConsent(e.target.value);
             setSelectedIds([]);
             setPage(0);
           }}
         >
-          <option value="all">
-            All Consent Statuses
-          </option>
+          <option value="all">All Consent Statuses</option>
 
-          {Object.entries(consentLabels).map(
-            ([key, label]) => (
-              <option key={key} value={key}>
-                {label}
-              </option>
-            )
-          )}
+          {Object.entries(consentLabels).map(([key, label]) => (
+            <option key={key} value={key}>
+              {label}
+            </option>
+          ))}
         </select>
-
       </div>
 
       {/* Bulk Actions */}
 
-      <div className="flex flex-wrap items-center gap-2 rounded-lg border border-slate-200 bg-white p-3">
+      <div className="space-y-3 rounded-xl border border-slate-200 bg-white p-4">
+        <div className="flex flex-wrap items-center gap-3">
+          <span className="mr-auto text-sm font-semibold text-slate-700">
+            {selectedContacts.length} selected (current page)
+          </span>
 
-        <span className="mr-auto text-sm font-medium text-slate-600">
-          {selectedContacts.length} selected (current page)
-        </span>
+          <select
+            aria-label="Bulk contact type"
+            className={buttonClass}
+            disabled={selectionDisabled || !selectedContacts.length}
+            value={bulkType}
+            onChange={(e) => setBulkType(e.target.value)}
+          >
+            <option value="">Change Contact Type</option>
 
-        <select
-          aria-label="Bulk contact type"
-          className={buttonClass}
-          disabled={
-            selectionDisabled ||
-            !selectedContacts.length
-          }
-          value={bulkType}
-          onChange={e => setBulkType(e.target.value)}
-        >
-          <option value="">
-            Change Contact Type
-          </option>
-
-          {Object.entries(typeLabels).map(
-            ([key, label]) => (
+            {Object.entries(typeLabels).map(([key, label]) => (
               <option key={key} value={key}>
                 {label}
               </option>
-            )
-          )}
-        </select>
+            ))}
+          </select>
 
-        <button
-          className={buttonClass}
-          disabled={
-            selectionDisabled ||
-            !!error ||
-            !selectedContacts.length ||
-            !bulkType
-          }
-          onClick={changeType}
-        >
-          Apply Type
-        </button>
+          <button
+            type="button"
+            className={buttonClass}
+            disabled={
+              selectionDisabled || !selectedContacts.length || !bulkType
+            }
+            onClick={changeType}
+          >
+            Apply Type
+          </button>
 
-        <button
-          className={primaryClass}
-          disabled={
-            selectionDisabled ||
-            !!error ||
-            !eligibleOptIn.length
-          }
-          onClick={() => changeConsent("bulk-opt-in")}
-        >
-          Mark Opted In ({eligibleOptIn.length})
-        </button>
+          <input
+            aria-label="Bulk tag"
+            className="min-w-[180px] rounded-lg border border-slate-300 px-3 py-2.5 text-sm"
+            placeholder="Enter tag name..."
+            maxLength={80}
+            value={bulkTag}
+            disabled={selectionDisabled || !selectedContacts.length}
+            onChange={(e) => setBulkTag(e.target.value)}
+          />
 
-        <button
-          className={buttonClass}
-          disabled={
-            selectionDisabled ||
-            !!error ||
-            !eligibleOptOut.length
-          }
-          onClick={() => changeConsent("bulk-opt-out")}
-        >
-          Opt Out ({eligibleOptOut.length})
-        </button>
+          <button
+            type="button"
+            className={primaryClass}
+            disabled={
+              selectionDisabled || !selectedContacts.length || !bulkTag.trim()
+            }
+            onClick={applyBulkTag}
+          >
+            <Tag size={16} />
+            Apply Tag
+          </button>
+        </div>
 
+        <details className="text-sm">
+          <summary className="cursor-pointer text-xs text-slate-500">
+            Marketing permissions
+          </summary>
+
+          <div className="mt-3 flex flex-wrap gap-2">
+            <button
+              type="button"
+              className={buttonClass}
+              disabled={selectionDisabled || !eligibleOptIn.length}
+              onClick={() => changeConsent("bulk-opt-in")}
+            >
+              Confirm permission ({eligibleOptIn.length})
+            </button>
+
+            <button
+              type="button"
+              className={buttonClass + " text-red-700"}
+              disabled={selectionDisabled || !eligibleOptOut.length}
+              onClick={() => changeConsent("bulk-opt-out")}
+            >
+              Exclude from marketing ({eligibleOptOut.length})
+            </button>
+          </div>
+        </details>
       </div>
 
       {/* Contacts Table */}
 
       <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
-
         <div className="overflow-x-auto">
-
           <table className="w-full min-w-[950px] text-left text-sm">
-
             <thead className="bg-slate-50 text-xs text-slate-600">
               <tr>
-
                 <th className="px-4 py-3">
                   <input
                     type="checkbox"
                     aria-label="Select all visible contacts"
                     className="h-4 w-4 accent-emerald-600"
-                    disabled={
-                      selectionDisabled ||
-                      !contacts.length ||
-                      !!error
-                    }
+                    disabled={selectionDisabled || !contacts.length || !!error}
                     checked={
                       contacts.length > 0 &&
-                      contacts.every(
-                        contact =>
-                          selectedIds.includes(contact.id)
+                      contacts.every((contact) =>
+                        selectedIds.includes(contact.id),
                       )
                     }
-                    onChange={e =>
+                    onChange={(e) =>
                       setSelectedIds(
                         e.target.checked
-                          ? contacts.map(
-                              contact => contact.id
-                            )
-                          : []
+                          ? contacts.map((contact) => contact.id)
+                          : [],
                       )
                     }
                   />
@@ -859,172 +820,111 @@ export default function ContactsManager() {
                   "Source",
                   "Contact Type",
                   "Tags",
-                  "Consent Status",
                   "Action",
-                ].map(header => (
-                  <th
-                    key={header}
-                    className="px-4 py-3 font-semibold"
-                  >
+                ].map((header) => (
+                  <th key={header} className="px-4 py-3 font-semibold">
                     {header}
                   </th>
                 ))}
-
               </tr>
             </thead>
 
             <tbody className="divide-y divide-slate-100">
-
               {loading ? (
                 <tr>
-                  <td
-                    colSpan={8}
-                    className="p-8 text-center text-slate-500"
-                  >
+                  <td colSpan={8} className="p-8 text-center text-slate-500">
                     Loading contacts...
                   </td>
                 </tr>
-
               ) : contacts.length === 0 ? (
                 <tr>
-                  <td
-                    colSpan={8}
-                    className="p-8 text-center text-slate-500"
-                  >
+                  <td colSpan={7} className="p-8 text-center text-slate-500">
                     No contacts found.
                   </td>
                 </tr>
+              ) : (
+                contacts.map((contact) => (
+                  <tr key={contact.id} className="hover:bg-slate-50">
+                    {/* Checkbox */}
 
-              ) : contacts.map(contact => (
+                    
 
-                <tr
-                  key={contact.id}
-                  className="hover:bg-slate-50"
-                >
+                    {/* Name and phone */}
 
-                  {/* Checkbox */}
+                    <td className="px-4 py-4">
+                      <p className="font-semibold text-slate-900">
+                        {contact.name || "Unnamed contact"}
+                      </p>
 
-                  <td className="px-4 py-4">
-                    <input
-                      type="checkbox"
-                      aria-label={`Select ${contact.name || contact.phone}`}
-                      className="h-4 w-4 accent-emerald-600"
-                      disabled={selectionDisabled || !!error}
-                      checked={
-                        selectedIds.includes(contact.id)
-                      }
-                      onChange={e =>
-                        setSelectedIds(prev =>
-                          e.target.checked
-                            ? [
-                                ...new Set([
-                                  ...prev,
-                                  contact.id,
-                                ]),
-                              ]
-                            : prev.filter(
-                                id => id !== contact.id
-                              )
-                        )
-                      }
-                    />
-                  </td>
+                      <p className="mt-1 text-xs text-slate-500">
+                        +{contact.phone}
+                      </p>
+                    </td>
 
-                  {/* Name and phone */}
+                    {/* Location */}
 
-                  <td className="px-4 py-4">
+                    <td className="px-4 py-4">{contact.location || "—"}</td>
 
-                    <p className="font-semibold text-slate-900">
-                      {contact.name || "Unnamed contact"}
-                    </p>
+                    {/* Source */}
 
-                    <p className="mt-1 text-xs text-slate-500">
-                      +{contact.phone}
-                    </p>
+                    <td className="px-4 py-4">
+                      {sourceLabels[contact.source] || contact.source}
+                    </td>
 
-                  </td>
+                    {/* Contact Type */}
 
-                  {/* Location */}
+                    <td className="px-4 py-4">
+                      <span className="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-medium">
+                        {typeLabels[contact.contact_type] || "Unclassified"}
+                      </span>
+                    </td>
 
-                  <td className="px-4 py-4">
-                    {contact.location || "—"}
-                  </td>
+                    {/* Tags */}
 
-                  {/* Source */}
+                    <td className="px-4 py-4">
+                      <div className="flex max-w-xs flex-wrap gap-1">
+                        {(contact.tags || []).map((t) => (
+                          <span
+                            key={t}
+                            className="rounded-full bg-slate-100 px-2 py-1 text-xs text-slate-700"
+                          >
+                            {t}
+                          </span>
+                        ))}
+                      </div>
+                    </td>
 
-                  <td className="px-4 py-4">
-                    {sourceLabels[contact.source] ||
-                      contact.source}
-                  </td>
+                    {/* Consent Status */}
 
-                  {/* Contact Type */}
+                    <td className="px-4 py-4">
+                      <span
+                        className={
+                          "rounded-full px-2.5 py-1 text-xs font-semibold " +
+                          (consentColors[contact.consent_status] ||
+                            "bg-slate-100")
+                        }
+                      >
+                        {consentLabels[contact.consent_status] ||
+                          contact.consent_status}
+                      </span>
+                    </td>
 
-                  <td className="px-4 py-4">
-                    <span className="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-medium">
-                      {typeLabels[contact.contact_type] ||
-                        "Unclassified"}
-                    </span>
-                  </td>
+                    {/* Edit Action */}
 
-                  {/* Tags */}
-
-                  <td className="px-4 py-4">
-                    <div className="flex max-w-xs flex-wrap gap-1">
-
-                      {(contact.tags || []).map(t => (
-                        <span
-                          key={t}
-                          className="rounded-full bg-slate-100 px-2 py-1 text-xs text-slate-700"
-                        >
-                          {t}
-                        </span>
-                      ))}
-
-                    </div>
-                  </td>
-
-                  {/* Consent Status */}
-
-                  <td className="px-4 py-4">
-                    <span
-                      className={
-                        "rounded-full px-2.5 py-1 text-xs font-semibold " +
-                        (
-                          consentColors[
-                            contact.consent_status
-                          ] || "bg-slate-100"
-                        )
-                      }
-                    >
-                      {consentLabels[
-                        contact.consent_status
-                      ] || contact.consent_status}
-                    </span>
-                  </td>
-
-                  {/* Edit Action */}
-
-                  <td className="px-4 py-4">
-
-                    <button
-                      type="button"
-                      disabled={
-                        busy ||
-                        !!editor ||
-                        showImport
-                      }
-                      onClick={() => openEditor(contact)}
-                      className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-emerald-700 hover:bg-emerald-50 disabled:opacity-50"
-                    >
-                      <Pencil size={15} />
-                      Edit
-                    </button>
-
-                  </td>
-
-                </tr>
-              ))}
-
+                    <td className="px-4 py-4">
+                      <button
+                        type="button"
+                        disabled={busy || !!editor || showImport}
+                        onClick={() => openEditor(contact)}
+                        className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-emerald-700 hover:bg-emerald-50 disabled:opacity-50"
+                      >
+                        <Pencil size={15} />
+                        Edit
+                      </button>
+                    </td>
+                  </tr>
+                ))
+              )}
             </tbody>
           </table>
         </div>
@@ -1032,23 +932,19 @@ export default function ContactsManager() {
         {/* Pagination */}
 
         <div className="flex flex-wrap items-center justify-between gap-2 border-t border-slate-200 p-4 text-sm text-slate-500">
-
           <span>
-            {total ? page * PAGE_SIZE + 1 : 0}
-            –
-            {Math.min((page + 1) * PAGE_SIZE, total)}
-            {" "}of {total} contacts
+            {total ? page * PAGE_SIZE + 1 : 0}–
+            {Math.min((page + 1) * PAGE_SIZE, total)} of {total} contacts
           </span>
 
           <div className="flex items-center gap-2">
-
             <button
               className={buttonClass}
               aria-label="Previous page"
               disabled={loading || page === 0}
               onClick={() => {
                 setSelectedIds([]);
-                setPage(p => p - 1);
+                setPage((p) => p - 1);
               }}
             >
               <ChevronLeft size={16} />
@@ -1064,15 +960,13 @@ export default function ContactsManager() {
               disabled={loading || page + 1 >= pages}
               onClick={() => {
                 setSelectedIds([]);
-                setPage(p => p + 1);
+                setPage((p) => p + 1);
               }}
             >
               <ChevronRight size={16} />
             </button>
-
           </div>
         </div>
-
       </div>
     </div>
   );
